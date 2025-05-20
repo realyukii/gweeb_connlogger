@@ -8,8 +8,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 			"syscall"
 		:	"=a" (ret)
 		:	"a" (42),		/* %rax */
-			"D" (sockfd)	/* %rdi */
-			"S" (addr)		/* %rsi */
+			"D" (sockfd),	/* %rdi */
+			"S" (addr),		/* %rsi */
 			"d" (addrlen)	/* %rdx */
 	);
 
