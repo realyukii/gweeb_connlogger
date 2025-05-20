@@ -13,6 +13,7 @@ list of used glibc's function:
 - `asctime`
 - `fopen`
 - `fwrite`
+- `getenv`
 
 ### inline assembly
 ```

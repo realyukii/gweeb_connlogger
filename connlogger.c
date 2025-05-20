@@ -3,6 +3,21 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <stdlib.h>
+
+static FILE *log_file = NULL;
+
+static void init_log(void) {
+	const char *log_path;
+	if (log_file)
+		return;
+	log_path = getenv("GWLOG_PATH");
+	if (!log_path) {
+		log_path = "/dev/null";
+	}
+
+	log_file = fopen(log_path, "a");
+}
 
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 	int ret;
@@ -16,7 +31,6 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 		: "memory", "rcx", "r11", "cc"
 	);
 
-	FILE *handle = fopen("./build/log", "a");
 	char formatted_log[1024] = {0};
 	
 	time_t rawtime;
@@ -41,7 +55,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 		break;
 	}
 	sprintf(formatted_log, "[%s] address %s, return: %d\n", formatted_time, ip_str, ret);
-	fwrite(formatted_log, strlen(formatted_log), 1, handle);
+	init_log();
+	fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 
 	if (ret < 0) {
 		errno = -ret;
