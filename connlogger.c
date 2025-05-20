@@ -40,7 +40,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 		sprintf(ip_str, "Unknown AF");
 		break;
 	}
-	sprintf(formatted_log, "[%s] address %s\n", formatted_time, ip_str);
+	sprintf(formatted_log, "[%s] address %s, return: %d\n", formatted_time, ip_str, ret);
 	fwrite(formatted_log, strlen(formatted_log), 1, handle);
 
 	if (ret < 0) {
