@@ -28,4 +28,13 @@ __asm__ volatile (
 )
 ```
 
-
+### Weird stuff
+```
+[reyuki@zero gweeb_connlogger]$  strace -e trace=connect /usr/bin/env LD_PRELOAD=/home/reyuki/software/my-code/gnuweeb/gweeb_connlogger/build/gwconnlogger.so curl -s http://google.com/ >/dev/null
+connect: No such file or directory
+connect(4, {sa_family=AF_INET6, sin6_port=htons(80), sin6_flowinfo=htonl(0), inet_pton(AF_INET6, "2404:6800:4003:c05::8a", &sin6_addr), sin6_scope_id=0}, 28) = -1 EINPROGRESS (Operation now in progress)
+connect: Operation now in progress
++++ exited with 0 +++
+[reyuki@zero gweeb_connlogger]$ 
+```
+no such file or directory on connect syscall? printed by `perror`

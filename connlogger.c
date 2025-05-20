@@ -11,17 +11,18 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 			"D" (sockfd),	/* %rdi */
 			"S" (addr),		/* %rsi */
 			"d" (addrlen)	/* %rdx */
+		: "memory", "rcx", "r11", "cc"
 	);
 
 	printf("ret: %d\n", ret);
-	perror("connect");
 	if (ret < 0) {
-		puts("failed");
 		errno = -ret;
+		puts("failed");
+		perror("connect");
 		return -1;
 	}
 
-	puts("success");
+	fprintf(stderr, "success\n");
 
 	return 0;
 }
