@@ -13,6 +13,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 			"d" (addrlen)	/* %rdx */
 	);
 
+	printf("ret: %d\n", ret);
+	perror("connect");
 	if (ret < 0) {
 		puts("failed");
 		errno = -ret;
