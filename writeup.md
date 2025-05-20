@@ -50,7 +50,7 @@ connect: Operation now in progress
 ```
 no such file or directory on connect syscall? printed by `perror`
 
-okay, it's a file? run/systemd/resolve/io.system (the AF_FAMILY is pointed to PF_LOCAL):
+okay, it's a file? `run/systemd/resolve/io.system` (the AF_FAMILY is pointed to PF_LOCAL):
 ```
 gef➤  p/d $rax
 $1 = 42
