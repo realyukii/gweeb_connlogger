@@ -1,4 +1,4 @@
 build/testing_shared_lib: main.c build/gwconnlogger.so
-	gcc $^ -o $@
+	gcc -g3 $^ -o $@
 build/gwconnlogger.so: connlogger.c
-	gcc -shared -Os -fpic -fPIC $^ -o $@
+	gcc -shared -O0 -g3 -fpic -fPIC $^ -o $@

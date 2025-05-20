@@ -1,5 +1,9 @@
-#include <stdio.h>
-
 void external_func(void) {
-    printf("test shared library");
+    int a = 10, b;
+    asm("movl %1, %%eax;"
+        "movl %%eax, %0;"
+        :"=r" (b)
+        :"r" (a)
+        :"%eax"
+        );
 }
