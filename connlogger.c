@@ -40,8 +40,9 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 	char formatted_time[255];
 	strcpy(formatted_time, asctime(timeinfo));
 	formatted_time[strlen(formatted_time) - 1] = '\0';
-	char ip_str[INET6_ADDRSTRLEN] = {0};
 
+	char ip_str[INET6_ADDRSTRLEN] = {0};
+	uint16_t port = ntohs(((struct sockaddr_in *)addr)->sin_port);
 	switch (addr->sa_family)
 	{
 	case AF_INET:
@@ -54,7 +55,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 		sprintf(ip_str, "Unknown AF");
 		break;
 	}
-	sprintf(formatted_log, "[%s] address %s, return: %d\n", formatted_time, ip_str, ret);
+	sprintf(formatted_log, "[%s] address %s:%d, return: %d\n", formatted_time, ip_str, port, ret);
 	init_log();
 	fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 
