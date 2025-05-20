@@ -1,8 +1,18 @@
-## documentation
+## links and documentation
 - `connect(2)`
 - [osdev wiki](https://wiki.osdev.org/Inline_Assembly) - inline assembly
 - [gcc documentation](https://gcc.gnu.org/onlinedocs/gcc/Constraints.html) - list of constraint letter
 - [well-written example](gist.github.com/ammarfaizi2/1e1424f987cfbe3e3c3b571b6e590923) as references
+- [ChatGPT](https://chatgpt.com/share/682c9388-e6dc-8002-a209-fe11def5a65e) - debugging a shared library
+
+### glibc
+list of used glibc's function:
+- `sprintf`
+- `strlen`
+- `localtime`
+- `asctime`
+- `fopen`
+- `fwrite`
 
 ### inline assembly
 ```
@@ -38,3 +48,17 @@ connect: Operation now in progress
 [reyuki@zero gweeb_connlogger]$ 
 ```
 no such file or directory on connect syscall? printed by `perror`
+
+okay, it's a file? run/systemd/resolve/io.system (the AF_FAMILY is pointed to PF_LOCAL):
+```
+gef➤  p/d $rax
+$1 = 42
+gef➤  p $rsi
+$2 = 0x7ffff6dfe040
+gef➤  hexdump byte $rsi
+0x00007ffff6dfe040     01 00 2f 72 75 6e 2f 73 79 73 74 65 6d 64 2f 72    ../run/systemd/r
+0x00007ffff6dfe050     65 73 6f 6c 76 65 2f 69 6f 2e 73 79 73 74 65 6d    esolve/io.system
+0x00007ffff6dfe060     64 2e 52 65 73 6f 6c 76 65 00 00 00 00 00 00 00    d.Resolve.......
+0x00007ffff6dfe070     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
+gef➤  
+```
