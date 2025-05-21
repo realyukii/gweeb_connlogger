@@ -7,28 +7,30 @@
 
 static FILE *log_file = NULL;
 
-static void init_log(void) {
+static void init_log(void)
+{
 	const char *log_path;
 	if (log_file)
 		return;
+
 	log_path = getenv("GWLOG_PATH");
-	if (!log_path) {
+	if (!log_path)
 		log_path = "/dev/null";
-	}
 
 	log_file = fopen(log_path, "a");
 }
 
-int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+{
 	int ret;
 	asm volatile(
-			"syscall"
-		:	"=a" (ret)
-		:	"a" (42),		/* %rax */
-			"D" (sockfd),	/* %rdi */
-			"S" (addr),		/* %rsi */
-			"d" (addrlen)	/* %rdx */
-		: "memory", "rcx", "r11", "cc"
+		"syscall"
+		:"=a" (ret)
+		:"a" (42),		/* %rax */
+		 "D" (sockfd),	/* %rdi */
+		 "S" (addr),		/* %rsi */
+		 "d" (addrlen)	/* %rdx */
+		:"memory", "rcx", "r11", "cc"
 	);
 
 	char formatted_log[1024] = {0};
@@ -43,8 +45,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 
 	char ip_str[INET6_ADDRSTRLEN] = {0};
 	uint16_t port = ntohs(((struct sockaddr_in *)addr)->sin_port);
-	switch (addr->sa_family)
-	{
+
+	switch (addr->sa_family) {
 	case AF_INET:
 			inet_ntop(AF_INET, &(((struct sockaddr_in *)addr)->sin_addr), ip_str, INET_ADDRSTRLEN);
 		break;
@@ -55,6 +57,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 		sprintf(ip_str, "Unknown AF");
 		break;
 	}
+
 	sprintf(formatted_log, "[%s] address %s:%d, return: %d\n", formatted_time, ip_str, port, ret);
 	init_log();
 	fwrite(formatted_log, strlen(formatted_log), 1, log_file);
