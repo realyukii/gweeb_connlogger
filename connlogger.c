@@ -5,6 +5,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* cheating for testing purposes :v */
+#include <sys/syscall.h>
+#include <unistd.h>
+
 static FILE *log_file = NULL;
 
 static void init_log(void)
@@ -26,9 +30,9 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	asm volatile(
 		"syscall"
 		:"=a" (ret)
-		:"a" (42),		/* %rax */
+		:"a" (__NR_connect),	/* %rax */
 		 "D" (sockfd),	/* %rdi */
-		 "S" (addr),		/* %rsi */
+		 "S" (addr),	/* %rsi */
 		 "d" (addrlen)	/* %rdx */
 		:"memory", "rcx", "r11", "cc"
 	);
@@ -66,4 +70,20 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	}
 
 	return 0;
+}
+
+ssize_t send(int sockfd, const void *buf, size_t size, int flags) {
+	init_log();
+	const char testing[] = "test send\n";
+	fwrite(testing, sizeof(testing) - 1, 1, log_file);
+	
+	return syscall(__NR_sendto, sockfd, buf, size, flags, NULL, 0);
+}
+
+ssize_t recv(int sockfd, void *buf, size_t size, int flags) {
+	init_log();
+	const char testing[] = "test recv\n";
+	fwrite(testing, sizeof(testing) - 1, 1, log_file);
+	
+	return syscall(__NR_recvfrom, sockfd, buf, size, flags, NULL, 0);
 }
