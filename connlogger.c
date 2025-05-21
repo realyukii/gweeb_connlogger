@@ -4,10 +4,7 @@
 #include <time.h>
 #include <string.h>
 #include <stdlib.h>
-
-/* cheating for testing purposes :v */
 #include <sys/syscall.h>
-#include <unistd.h>
 
 static FILE *log_file = NULL;
 
@@ -73,17 +70,58 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 }
 
 ssize_t send(int sockfd, const void *buf, size_t size, int flags) {
+	register int _flags asm("r10") = flags;
+	register struct sockaddr *_dest_addr asm("r8") = NULL;
+	register socklen_t _dest_len asm("r9") = 0;
+	int ret;
+	asm volatile (
+		"syscall"
+		: "=a" (ret)
+		: "a" (__NR_sendto),	/* %rax */
+		  "D" (sockfd),		/* %rdi */
+		  "S" (buf),		/* %rsi */
+		  "d" (size),		/* %rdx */
+		  "r" (_flags),		/* %r10 */
+		  "r" (_dest_addr),	/* %r8 */
+		  "r" (_dest_len)	/* %r9 */
+		: "memory", "rcx", "r11", "cc"
+	);
 	init_log();
 	const char testing[] = "test send\n";
 	fwrite(testing, sizeof(testing) - 1, 1, log_file);
 	
-	return syscall(__NR_sendto, sockfd, buf, size, flags, NULL, 0);
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
+	return ret;
 }
 
 ssize_t recv(int sockfd, void *buf, size_t size, int flags) {
+	register int _flags asm("r10") = flags;
+	register struct sockaddr *_dest_addr asm("r8") = NULL;
+	register socklen_t _dest_len asm("r9") = 0;
+	int ret;
+	asm volatile (
+		"syscall"
+		: "=a" (ret)
+		: "a" (__NR_recvfrom),	/* %rax */
+		  "D" (sockfd),		/* %rdi */
+		  "S" (buf),		/* %rsi */
+		  "d" (size),		/* %rdx */
+		  "r" (_flags),		/* %r10 */
+		  "r" (_dest_addr),	/* %r8 */
+		  "r" (_dest_len)	/* %r9 */
+		: "memory", "rcx", "r11", "cc"
+	);
+
 	init_log();
 	const char testing[] = "test recv\n";
 	fwrite(testing, sizeof(testing) - 1, 1, log_file);
 	
-	return syscall(__NR_recvfrom, sockfd, buf, size, flags, NULL, 0);
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
+	return ret;
 }

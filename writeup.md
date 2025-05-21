@@ -4,6 +4,7 @@
 - [gcc documentation](https://gcc.gnu.org/onlinedocs/gcc/Constraints.html) - list of constraint letter
 - [well-written example](gist.github.com/ammarfaizi2/1e1424f987cfbe3e3c3b571b6e590923) as references
 - [ChatGPT](https://chatgpt.com/share/682c9388-e6dc-8002-a209-fe11def5a65e) - debugging a shared library
+- [stackoverflow](https://stackoverflow.com/questions/15997759/constraining-r10-register-in-gcc-inline-x86-64-assembly) - r10 register is not available in constraint letter
 
 ### glibc
 list of used glibc's function:
