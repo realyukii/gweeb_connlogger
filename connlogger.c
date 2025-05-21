@@ -28,9 +28,9 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		"syscall"
 		:"=a" (ret)
 		:"a" (__NR_connect),	/* %rax */
-		 "D" (sockfd),	/* %rdi */
-		 "S" (addr),	/* %rsi */
-		 "d" (addrlen)	/* %rdx */
+		 "D" (sockfd),		/* %rdi */
+		 "S" (addr),		/* %rsi */
+		 "d" (addrlen)		/* %rdx */
 		:"memory", "rcx", "r11", "cc"
 	);
 
@@ -57,16 +57,19 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		break;
 	}
 
-	sprintf(formatted_log, "[%s] address %s:%d, return: %d\n", formatted_time, ip_str, port, ret);
-	init_log();
-	fwrite(formatted_log, strlen(formatted_log), 1, log_file);
+	if (addr->sa_family == AF_INET || addr->sa_family == AF_INET6) {
+		sprintf(formatted_log, "[%s]|address %s:%d|", formatted_time, ip_str, port);
+		init_log();
+		fwrite(formatted_log, strlen(formatted_log), 1, log_file);
+		fflush(log_file);
+	}
 
 	if (ret < 0) {
 		errno = -ret;
-		return -1;
+		ret = -1;
 	}
 
-	return 0;
+	return ret;
 }
 
 ssize_t send(int sockfd, const void *buf, size_t size, int flags) {
@@ -86,13 +89,21 @@ ssize_t send(int sockfd, const void *buf, size_t size, int flags) {
 		  "r" (_dest_len)	/* %r9 */
 		: "memory", "rcx", "r11", "cc"
 	);
-	init_log();
-	const char testing[] = "test send\n";
-	fwrite(testing, sizeof(testing) - 1, 1, log_file);
-	
+
 	if (ret < 0) {
 		errno = -ret;
 		ret = -1;
+	} else {
+		char tmpbuf[ret];
+		strncpy(tmpbuf, buf, ret);
+		char *method = strtok(tmpbuf, " ");
+		char *path = strtok(0, " ");
+		char *http_version = strtok(0, "\r\n");
+		char *host = strtok(0, "\r\n");
+		
+		init_log();
+		fprintf(log_file, "HTTP Ver: %s|Method: %s|Path: %s|%s|", http_version, method, path, host);
+		fflush(log_file);
 	}
 	return ret;
 }
@@ -115,13 +126,14 @@ ssize_t recv(int sockfd, void *buf, size_t size, int flags) {
 		: "memory", "rcx", "r11", "cc"
 	);
 
-	init_log();
-	const char testing[] = "test recv\n";
-	fwrite(testing, sizeof(testing) - 1, 1, log_file);
-	
 	if (ret < 0) {
 		errno = -ret;
 		ret = -1;
+	} else {
+		strtok(buf, " ");
+		char *response_code = strtok(0, " ");
+		init_log();
+		fprintf(log_file, "HTTP Response: %s\n", response_code);
 	}
 	return ret;
 }

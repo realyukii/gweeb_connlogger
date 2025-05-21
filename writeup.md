@@ -40,6 +40,12 @@ __asm__ volatile (
 )
 ```
 
+### note
+dikutip dari SystemV ABI:
+> user-level applications use as integer registers for passing the sequence %rdi, %rsi, %rdx, %rcx, %r8 and %r9. The kernel interface uses %rdi, %rsi, %rdx, %r10, %r8 and %r9.
+
+calling convention untuk function user-level application dan linux kernel system call itu berbeda.
+
 ### Weird stuff
 ```
 [reyuki@zero gweeb_connlogger]$  strace -e trace=connect /usr/bin/env LD_PRELOAD=/home/reyuki/software/my-code/gnuweeb/gweeb_connlogger/build/gwconnlogger.so curl -s http://google.com/ >/dev/null
