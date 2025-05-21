@@ -44,17 +44,15 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	formatted_time[strlen(formatted_time) - 1] = '\0';
 
 	char ip_str[INET6_ADDRSTRLEN] = {0};
-	uint16_t port = ntohs(((struct sockaddr_in *)addr)->sin_port);
-
+	uint16_t port;
 	switch (addr->sa_family) {
 	case AF_INET:
 			inet_ntop(AF_INET, &(((struct sockaddr_in *)addr)->sin_addr), ip_str, INET_ADDRSTRLEN);
+			port = ntohs(((struct sockaddr_in *)addr)->sin_port);
 		break;
 	case AF_INET6:
 			inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)addr)->sin6_addr), ip_str, INET6_ADDRSTRLEN);
-		break;
-	default:
-		sprintf(ip_str, "Unknown AF");
+			port = ntohs(((struct sockaddr_in6 *)addr)->sin6_port);
 		break;
 	}
 
