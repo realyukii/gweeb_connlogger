@@ -1,3 +1,5 @@
+HTTP logger
+
 usage: LD_PRELOAD=/path/to/gwconnlogger.so GWLOG_PATH=/tmp/log.txt curl http://google.com
 
 debugging: strace -e trace=connect /usr/bin/env LD_PRELOAD=/home/reyuki/software/my-code/gnuweeb/gweeb_connlogger/build/gwconnlogger.so curl -s http://google.com/ >/dev/null

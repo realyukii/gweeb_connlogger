@@ -5,8 +5,22 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/syscall.h>
+#include <unistd.h>
+
+#define POOL_SZ 100
 
 static FILE *log_file = NULL;
+static short sockfd[POOL_SZ] = {0};
+static struct http_ctx network_state[POOL_SZ];
+struct http_ctx {
+	char *remote_addr;
+	uint16_t remote_port;
+	char is_http11;
+	char *http_method;
+	char *http_path;
+	char *http_host_hdr;
+	char *http_code_status;
+};
 
 static void init_log(void)
 {
@@ -21,6 +35,34 @@ static void init_log(void)
 	log_file = fopen(log_path, "a");
 }
 
+int socket(int domain, int type, int protocol)
+{
+	int ret;
+	asm volatile(
+		"syscall"
+		: "=a" (ret)
+		: "a" (__NR_socket),	/* %rax */
+		  "D" (domain),			/* %rdi */
+		  "S" (type),			/* %rsi */
+		  "d" (protocol)		/* %rdx */
+		: "memory", "rcx", "r11", "cc"
+	);
+
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	} else {
+		for (size_t i = 0; i < POOL_SZ; i++) {
+			if (sockfd[i] == 0) {
+				sockfd[i] = ret;
+				break;
+			}
+		}
+	}
+
+	return ret;
+}
+
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
 	int ret;
@@ -28,9 +70,9 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		"syscall"
 		:"=a" (ret)
 		:"a" (__NR_connect),	/* %rax */
-		 "D" (sockfd),		/* %rdi */
-		 "S" (addr),		/* %rsi */
-		 "d" (addrlen)		/* %rdx */
+		 "D" (sockfd),			/* %rdi */
+		 "S" (addr),			/* %rsi */
+		 "d" (addrlen)			/* %rdx */
 		:"memory", "rcx", "r11", "cc"
 	);
 
@@ -60,7 +102,12 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	if (addr->sa_family == AF_INET || addr->sa_family == AF_INET6) {
 		sprintf(formatted_log, "[%s]|address %s:%d|", formatted_time, ip_str, port);
 		init_log();
-		fwrite(formatted_log, strlen(formatted_log), 1, log_file);
+		
+		char str_sockfd[255] = {0};
+		sprintf(str_sockfd, "connected at socket file descriptor: %d\n", sockfd);
+		fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
+
+		// fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 		fflush(log_file);
 	}
 
@@ -72,7 +119,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	return ret;
 }
 
-ssize_t send(int sockfd, const void *buf, size_t size, int flags) {
+ssize_t send(int sockfd, const void *buf, size_t size, int flags)
+{
 	register int _flags asm("r10") = flags;
 	register struct sockaddr *_dest_addr asm("r8") = NULL;
 	register socklen_t _dest_len asm("r9") = 0;
@@ -102,13 +150,19 @@ ssize_t send(int sockfd, const void *buf, size_t size, int flags) {
 		char *host = strtok(0, "\r\n");
 		
 		init_log();
-		fprintf(log_file, "HTTP Ver: %s|Method: %s|Path: %s|%s|", http_version, method, path, host);
+		
+		char str_sockfd[255] = {0};
+		sprintf(str_sockfd, "send from socket file descriptor: %d\n", sockfd);
+		fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
+
+		// fprintf(log_file, "HTTP Ver: %s|Method: %s|Path: %s|%s|", http_version, method, path, host);
 		fflush(log_file);
 	}
 	return ret;
 }
 
-ssize_t recv(int sockfd, void *buf, size_t size, int flags) {
+ssize_t recv(int sockfd, void *buf, size_t size, int flags)
+{
 	register int _flags asm("r10") = flags;
 	register struct sockaddr *_dest_addr asm("r8") = NULL;
 	register socklen_t _dest_len asm("r9") = 0;
@@ -117,12 +171,12 @@ ssize_t recv(int sockfd, void *buf, size_t size, int flags) {
 		"syscall"
 		: "=a" (ret)
 		: "a" (__NR_recvfrom),	/* %rax */
-		  "D" (sockfd),		/* %rdi */
-		  "S" (buf),		/* %rsi */
-		  "d" (size),		/* %rdx */
-		  "r" (_flags),		/* %r10 */
-		  "r" (_dest_addr),	/* %r8 */
-		  "r" (_dest_len)	/* %r9 */
+		  "D" (sockfd),			/* %rdi */
+		  "S" (buf),			/* %rsi */
+		  "d" (size),			/* %rdx */
+		  "r" (_flags),			/* %r10 */
+		  "r" (_dest_addr),		/* %r8 */
+		  "r" (_dest_len)		/* %r9 */
 		: "memory", "rcx", "r11", "cc"
 	);
 
@@ -133,7 +187,34 @@ ssize_t recv(int sockfd, void *buf, size_t size, int flags) {
 		strtok(buf, " ");
 		char *response_code = strtok(0, " ");
 		init_log();
-		fprintf(log_file, "HTTP Response: %s\n", response_code);
+		
+		char str_sockfd[255] = {0};
+		sprintf(str_sockfd, "receive from socket file descriptor: %d\n", sockfd);
+		fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
+
+		// fprintf(log_file, "HTTP Response: %s\n", response_code);
 	}
+	return ret;
+}
+
+int close(int fd)
+{
+	int ret;
+	asm volatile (
+		"syscall"
+		: "=a" (ret)
+		: "a" (__NR_close),	/* %rax */
+		  "D" (fd)			/* %rdi */
+		: "memory", "rcx", "r11", "cc"
+	);
+
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	} else {
+		init_log();
+		fprintf(log_file, "close connection on fd: %d\n");
+	}
+
 	return ret;
 }
