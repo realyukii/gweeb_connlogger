@@ -75,31 +75,30 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		 "d" (addrlen)			/* %rdx */
 		:"memory", "rcx", "r11", "cc"
 	);
-
-	char formatted_log[1024] = {0};
 	
-	time_t rawtime;
-	struct tm *timeinfo;
-	time(&rawtime);
-	timeinfo = localtime(&rawtime);
-	char formatted_time[255];
-	strcpy(formatted_time, asctime(timeinfo));
-	formatted_time[strlen(formatted_time) - 1] = '\0';
-
-	char ip_str[INET6_ADDRSTRLEN] = {0};
-	uint16_t port;
-	switch (addr->sa_family) {
-	case AF_INET:
-			inet_ntop(AF_INET, &(((struct sockaddr_in *)addr)->sin_addr), ip_str, INET_ADDRSTRLEN);
-			port = ntohs(((struct sockaddr_in *)addr)->sin_port);
-		break;
-	case AF_INET6:
-			inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)addr)->sin6_addr), ip_str, INET6_ADDRSTRLEN);
-			port = ntohs(((struct sockaddr_in6 *)addr)->sin6_port);
-		break;
-	}
-
 	if (addr->sa_family == AF_INET || addr->sa_family == AF_INET6) {
+		time_t rawtime;
+		struct tm *timeinfo;
+		time(&rawtime);
+		timeinfo = localtime(&rawtime);
+		char formatted_time[255];
+		strcpy(formatted_time, asctime(timeinfo));
+		formatted_time[strlen(formatted_time) - 1] = '\0';
+
+		char ip_str[INET6_ADDRSTRLEN] = {0};
+		uint16_t port;
+		switch (addr->sa_family) {
+		case AF_INET:
+				inet_ntop(AF_INET, &(((struct sockaddr_in *)addr)->sin_addr), ip_str, INET_ADDRSTRLEN);
+				port = ntohs(((struct sockaddr_in *)addr)->sin_port);
+			break;
+		case AF_INET6:
+				inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)addr)->sin6_addr), ip_str, INET6_ADDRSTRLEN);
+				port = ntohs(((struct sockaddr_in6 *)addr)->sin6_port);
+			break;
+		}
+		
+		char formatted_log[1024] = {0};
 		sprintf(formatted_log, "[%s]|address %s:%d|", formatted_time, ip_str, port);
 		init_log();
 		
