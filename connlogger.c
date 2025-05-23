@@ -17,6 +17,8 @@ struct http_ctx {
 	char remote_addr[INET6_ADDRSTRLEN];
 	uint16_t remote_port;
 	char is_http11;
+	char *raw_http_req_hdr;
+	char *raw_http_res_hdr;
 	char *http_method;
 	char *http_path;
 	char *http_host_hdr;
@@ -96,6 +98,7 @@ int socket(int domain, int type, int protocol)
 		for (size_t i = 0; i < POOL_SZ; i++) {
 			if (network_state[i].sockfd == -1 && (domain == AF_INET || domain == AF_INET6)) {
 				network_state[i].sockfd = ret;
+				network_state[i].raw_http_req_hdr = calloc(1, 1024);
 				break;
 			}
 		}
@@ -148,11 +151,11 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	return ret;
 }
 
-ssize_t send(int sockfd, const void *buf, size_t size, int flags)
+ssize_t sendto(int sockfd, const void *buf, size_t size, int flags, struct sockaddr *dst_addr, socklen_t addrlen)
 {
 	register int _flags asm("r10") = flags;
-	register struct sockaddr *_dest_addr asm("r8") = NULL;
-	register socklen_t _dest_len asm("r9") = 0;
+	register struct sockaddr *_dest_addr asm("r8") = dst_addr;
+	register socklen_t _dest_len asm("r9") = addrlen;
 	int ret;
 	asm volatile (
 		"syscall"
@@ -186,31 +189,25 @@ ssize_t send(int sockfd, const void *buf, size_t size, int flags)
 				return ret;
 			}
 
-			char tmpbuf[ret];
-			strncpy(tmpbuf, buf, ret);
-			char *method = strtok(tmpbuf, " ");
-			char *path = strtok(0, " ");
-			char *http_version = strtok(0, "\r\n");
-			char *host = strtok(0, "\r\n");
-
-			ctx->http_method = malloc(strlen(method));
-			ctx->http_path = malloc(strlen(path));
-			ctx->http_host_hdr = malloc(strlen(host));
-
-			strcpy(ctx->http_method, method);
-			strcpy(ctx->http_path, path);
-			strcpy(ctx->http_host_hdr, host);
+			/* TODO: concat HTTP data until \r\n\r\n */
+			char end_header[] = "\r\n\r\n";
+			for (size_t i = 0; i < ret; i++) {
+				if (strcmp(&((char *)buf)[i], end_header) == 0) {
+					asm volatile ("int3");
+				}
+			}
+			
+			strncat(ctx->raw_http_req_hdr, buf, ret);
 		}
 	}
 
 	return ret;
 }
-
-ssize_t recv(int sockfd, void *buf, size_t size, int flags)
+ssize_t recvfrom(int sockfd, void *buf, size_t size, int flags, struct sockaddr *src_addr, socklen_t *addrlen)
 {
 	register int _flags asm("r10") = flags;
-	register struct sockaddr *_dest_addr asm("r8") = NULL;
-	register socklen_t _dest_len asm("r9") = 0;
+	register struct sockaddr *_dest_addr asm("r8") = src_addr;
+	register socklen_t *_dest_len asm("r9") = addrlen;
 	int ret;
 	asm volatile (
 		"syscall"
@@ -249,7 +246,18 @@ ssize_t recv(int sockfd, void *buf, size_t size, int flags)
 			strcpy(ctx->http_code_status, response_code);
 		}
 	}
+
 	return ret;
+}
+
+ssize_t send(int sockfd, const void *buf, size_t size, int flags)
+{
+	return sendto(fd, buf, size, flags, NULL, 0);
+}
+
+ssize_t recv(int sockfd, void *buf, size_t size, int flags)
+{
+	return recvfrom(sockfd, buf, size, flags, NULL, NULL);
 }
 
 int close(int fd)
