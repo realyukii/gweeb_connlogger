@@ -230,8 +230,7 @@ ssize_t recv(int sockfd, void *buf, size_t size, int flags)
 		ret = -1;
 	} else {
 		struct http_ctx *ctx = NULL;
-		for (size_t i = 0; i < POOL_SZ; i++)
-		{
+		for (size_t i = 0; i < POOL_SZ; i++) {
 			if (network_state[i].sockfd == sockfd) {
 				ctx = &network_state[i];
 				break;
@@ -239,8 +238,11 @@ ssize_t recv(int sockfd, void *buf, size_t size, int flags)
 		}
 
 		if (ctx != NULL) {
-			strtok(buf, " ");
-			char *response_code = strtok(0, " ");
+			// strtok(buf, " ");
+			// char *response_code = strtok(0, " ");
+			char *dummy_resp_code = malloc(4);
+			strcpy(dummy_resp_code, "200");
+			char *response_code = dummy_resp_code;
 			init_log();
 
 			ctx->http_code_status = malloc(strlen(response_code));
