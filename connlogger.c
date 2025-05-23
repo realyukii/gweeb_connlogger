@@ -127,28 +127,14 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		}
 
 		if (ctx != NULL) {
-			uint16_t port;
 			switch (addr->sa_family) {
 			case AF_INET:
-					port = ntohs(((struct sockaddr_in *)addr)->sin_port);
-					/* something using AF_INET and strangely use port zero */
-					if (port == 0) {
-						unwatch_connection(ctx);
-						break;
-					}
 					inet_ntop(AF_INET, &(((struct sockaddr_in *)addr)->sin_addr), ctx->remote_addr, INET_ADDRSTRLEN);
-					ctx->remote_port = port;
+					ctx->remote_port = ntohs(((struct sockaddr_in *)addr)->sin_port);
 				break;
 			case AF_INET6:
-					port = ntohs(((struct sockaddr_in6 *)addr)->sin6_port);
-					/* something using AF_INET6 and strangely use port zero */
-					if (port == 0) {
-						unwatch_connection(ctx);
-						break;
-					}
-
 					inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)addr)->sin6_addr), ctx->remote_addr, INET6_ADDRSTRLEN);
-					ctx->remote_port = port;
+					ctx->remote_port = ntohs(((struct sockaddr_in6 *)addr)->sin6_port);
 				break;
 			}
 		}
@@ -288,6 +274,12 @@ int close(int fd)
 		}
 
 		if (ctx != NULL) {
+			/* some program apperently do socket() -> close() sequence.  */
+			if (ctx->incr_send == 0) {
+				unwatch_connection(ctx);
+				return ret;
+			}
+
 			time_t rawtime;
 			struct tm *timeinfo;
 			time(&rawtime);
@@ -302,7 +294,6 @@ int close(int fd)
 			init_log();
 			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 
-			/* cleanup */
 			unwatch_connection(ctx);
 		}
 	}
