@@ -10,10 +10,9 @@
 #define POOL_SZ 100
 
 static FILE *log_file = NULL;
-static short sockfd[POOL_SZ] = {0};
-static struct http_ctx network_state[POOL_SZ];
 struct http_ctx {
-	char *remote_addr;
+	int sockfd;
+	char remote_addr[INET6_ADDRSTRLEN];
 	uint16_t remote_port;
 	char is_http11;
 	char *http_method;
@@ -21,6 +20,7 @@ struct http_ctx {
 	char *http_host_hdr;
 	char *http_code_status;
 };
+static struct http_ctx network_state[POOL_SZ] = {0};
 
 static void init_log(void)
 {
@@ -38,7 +38,7 @@ static void init_log(void)
 int socket(int domain, int type, int protocol)
 {
 	int ret;
-	asm volatile(
+	asm volatile (
 		"syscall"
 		: "=a" (ret)
 		: "a" (__NR_socket),	/* %rax */
@@ -53,8 +53,8 @@ int socket(int domain, int type, int protocol)
 		ret = -1;
 	} else {
 		for (size_t i = 0; i < POOL_SZ; i++) {
-			if (sockfd[i] == 0) {
-				sockfd[i] = ret;
+			if (network_state[i].sockfd == 0) {
+				network_state[i].sockfd = ret;
 				break;
 			}
 		}
@@ -66,7 +66,7 @@ int socket(int domain, int type, int protocol)
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
 	int ret;
-	asm volatile(
+	asm volatile (
 		"syscall"
 		:"=a" (ret)
 		:"a" (__NR_connect),	/* %rax */
@@ -76,35 +76,33 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		:"memory", "rcx", "r11", "cc"
 	);
 	
-	if (addr->sa_family == AF_INET || addr->sa_family == AF_INET6) {
-		time_t rawtime;
-		struct tm *timeinfo;
-		time(&rawtime);
-		timeinfo = localtime(&rawtime);
-		char formatted_time[255];
-		strcpy(formatted_time, asctime(timeinfo));
-		formatted_time[strlen(formatted_time) - 1] = '\0';
-
-		char ip_str[INET6_ADDRSTRLEN] = {0};
-		uint16_t port;
-		switch (addr->sa_family) {
-		case AF_INET:
-				inet_ntop(AF_INET, &(((struct sockaddr_in *)addr)->sin_addr), ip_str, INET_ADDRSTRLEN);
-				port = ntohs(((struct sockaddr_in *)addr)->sin_port);
-			break;
-		case AF_INET6:
-				inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)addr)->sin6_addr), ip_str, INET6_ADDRSTRLEN);
-				port = ntohs(((struct sockaddr_in6 *)addr)->sin6_port);
-			break;
+	if (addr->sa_family == AF_INET || addr->sa_family == AF_INET6) {		
+		struct http_ctx *ctx = NULL;
+		for (size_t i = 0; i < POOL_SZ; i++) {
+			if (network_state[i].sockfd == sockfd) {
+				ctx = &network_state[i];
+				break;
+			}
 		}
-		
-		char formatted_log[1024] = {0};
-		sprintf(formatted_log, "[%s]|address %s:%d|", formatted_time, ip_str, port);
-		init_log();
-		
-		char str_sockfd[255] = {0};
-		sprintf(str_sockfd, "connected at socket file descriptor: %d\n", sockfd);
-		fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
+
+		if (ctx != NULL) {
+			switch (addr->sa_family) {
+			case AF_INET:
+					inet_ntop(AF_INET, &(((struct sockaddr_in *)addr)->sin_addr), ctx->remote_addr, INET_ADDRSTRLEN);
+					ctx->remote_port = ntohs(((struct sockaddr_in *)addr)->sin_port);
+				break;
+			case AF_INET6:
+					inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)addr)->sin6_addr), ctx->remote_addr, INET6_ADDRSTRLEN);
+					ctx->remote_port = ntohs(((struct sockaddr_in6 *)addr)->sin6_port);
+				break;
+			}
+		}
+
+		// char str_sockfd[255] = {0};
+		// sprintf(str_sockfd, "connected at socket file descriptor: %d\n", sockfd);
+	
+		// init_log();
+		// fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
 
 		// fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 		fflush(log_file);
@@ -128,12 +126,12 @@ ssize_t send(int sockfd, const void *buf, size_t size, int flags)
 		"syscall"
 		: "=a" (ret)
 		: "a" (__NR_sendto),	/* %rax */
-		  "D" (sockfd),		/* %rdi */
-		  "S" (buf),		/* %rsi */
-		  "d" (size),		/* %rdx */
-		  "r" (_flags),		/* %r10 */
-		  "r" (_dest_addr),	/* %r8 */
-		  "r" (_dest_len)	/* %r9 */
+		  "D" (sockfd),			/* %rdi */
+		  "S" (buf),			/* %rsi */
+		  "d" (size),			/* %rdx */
+		  "r" (_flags),			/* %r10 */
+		  "r" (_dest_addr),		/* %r8 */
+		  "r" (_dest_len)		/* %r9 */
 		: "memory", "rcx", "r11", "cc"
 	);
 
@@ -141,21 +139,39 @@ ssize_t send(int sockfd, const void *buf, size_t size, int flags)
 		errno = -ret;
 		ret = -1;
 	} else {
-		char tmpbuf[ret];
-		strncpy(tmpbuf, buf, ret);
-		char *method = strtok(tmpbuf, " ");
-		char *path = strtok(0, " ");
-		char *http_version = strtok(0, "\r\n");
-		char *host = strtok(0, "\r\n");
-		
-		init_log();
-		
-		char str_sockfd[255] = {0};
-		sprintf(str_sockfd, "send from socket file descriptor: %d\n", sockfd);
-		fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
+		struct http_ctx *ctx = NULL;
+		for (size_t i = 0; i < POOL_SZ; i++) {
+			if (network_state[i].sockfd == sockfd) {
+				ctx = &network_state[i];
+				break;
+			}
+		}
 
-		// fprintf(log_file, "HTTP Ver: %s|Method: %s|Path: %s|%s|", http_version, method, path, host);
-		fflush(log_file);
+		if (ctx != NULL) {
+			char tmpbuf[ret];
+			strncpy(tmpbuf, buf, ret);
+			char *method = strtok(tmpbuf, " ");
+			char *path = strtok(0, " ");
+			char *http_version = strtok(0, "\r\n");
+			char *host = strtok(0, "\r\n");
+
+			ctx->http_method = malloc(strlen(method));
+			ctx->http_path = malloc(strlen(path));
+			ctx->http_host_hdr = malloc(strlen(host));
+
+			strcpy(ctx->http_method, method);
+			strcpy(ctx->http_path, path);
+			strcpy(ctx->http_host_hdr, host);
+			
+			// char str_sockfd[255] = {0};
+			// sprintf(str_sockfd, "send from socket file descriptor: %d\n", sockfd);
+			
+			// init_log();
+			// fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
+
+			// fprintf(log_file, "HTTP Ver: %s|Method: %s|Path: %s|%s|", http_version, method, path, host);
+			// fflush(log_file);
+		}
 	}
 	return ret;
 }
@@ -183,15 +199,29 @@ ssize_t recv(int sockfd, void *buf, size_t size, int flags)
 		errno = -ret;
 		ret = -1;
 	} else {
-		strtok(buf, " ");
-		char *response_code = strtok(0, " ");
-		init_log();
-		
-		char str_sockfd[255] = {0};
-		sprintf(str_sockfd, "receive from socket file descriptor: %d\n", sockfd);
-		fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
+		struct http_ctx *ctx = NULL;
+		for (size_t i = 0; i < POOL_SZ; i++)
+		{
+			if (network_state[i].sockfd == sockfd) {
+				ctx = &network_state[i];
+				break;
+			}
+		}
 
-		// fprintf(log_file, "HTTP Response: %s\n", response_code);
+		if (ctx != NULL) {
+			strtok(buf, " ");
+			char *response_code = strtok(0, " ");
+			init_log();
+
+			ctx->http_code_status = malloc(strlen(response_code));
+			strcpy(ctx->http_code_status, response_code);
+
+			// char str_sockfd[255] = {0};
+			// sprintf(str_sockfd, "receive from socket file descriptor: %d\n", sockfd);
+			// fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
+
+			// fprintf(log_file, "HTTP Response: %s\n", response_code);
+		}
 	}
 	return ret;
 }
@@ -211,8 +241,34 @@ int close(int fd)
 		errno = -ret;
 		ret = -1;
 	} else {
-		init_log();
-		fprintf(log_file, "close connection on fd: %d\n");
+		struct http_ctx *ctx = NULL;
+		for (size_t i = 0; i < POOL_SZ; i++) {
+			if (network_state[i].sockfd == fd) {
+				ctx = &network_state[i];
+				break;
+			}
+		}
+
+		if (ctx != NULL) {
+			init_log();
+			time_t rawtime;
+			struct tm *timeinfo;
+			time(&rawtime);
+			timeinfo = localtime(&rawtime);
+			char formatted_time[255];
+			strcpy(formatted_time, asctime(timeinfo));
+			formatted_time[strlen(formatted_time) - 1] = '\0';
+
+			char formatted_log[1024] = {0};
+			sprintf(formatted_log, "[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s", formatted_time, ctx->remote_addr, ctx->remote_port, ctx->http_method, ctx->http_path, ctx->http_host_hdr, ctx->http_code_status);
+
+			/* cleanup */
+			ctx->sockfd = -1;
+			free(ctx->http_method);
+			free(ctx->http_path);
+			free(ctx->http_host_hdr);
+			free(ctx->http_code_status);
+		}
 	}
 
 	return ret;
