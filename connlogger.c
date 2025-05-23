@@ -100,13 +100,6 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 			}
 		}
 
-		// char str_sockfd[255] = {0};
-		// sprintf(str_sockfd, "connected at socket file descriptor: %d\n", sockfd);
-	
-		// init_log();
-		// fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
-
-		// fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 		fflush(log_file);
 	}
 
@@ -164,15 +157,6 @@ ssize_t send(int sockfd, const void *buf, size_t size, int flags)
 			strcpy(ctx->http_method, method);
 			strcpy(ctx->http_path, path);
 			strcpy(ctx->http_host_hdr, host);
-			
-			// char str_sockfd[255] = {0};
-			// sprintf(str_sockfd, "send from socket file descriptor: %d\n", sockfd);
-			
-			// init_log();
-			// fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
-
-			// fprintf(log_file, "HTTP Ver: %s|Method: %s|Path: %s|%s|", http_version, method, path, host);
-			// fflush(log_file);
 		}
 	}
 	return ret;
@@ -217,12 +201,6 @@ ssize_t recv(int sockfd, void *buf, size_t size, int flags)
 
 			ctx->http_code_status = malloc(strlen(response_code));
 			strcpy(ctx->http_code_status, response_code);
-
-			// char str_sockfd[255] = {0};
-			// sprintf(str_sockfd, "receive from socket file descriptor: %d\n", sockfd);
-			// fwrite(str_sockfd, strlen(str_sockfd), 1, log_file);
-
-			// fprintf(log_file, "HTTP Response: %s\n", response_code);
 		}
 	}
 	return ret;
