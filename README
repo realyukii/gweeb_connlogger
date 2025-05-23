@@ -1,7 +1,10 @@
-HTTP logger
+This repository is part of GNU/Weeb challanges:
+- part 1, simple program loaded and executed through LD_PRELOAD: https://t.me/GNUWeeb/1166930
+- part 2, an extension of part 1, adding functionality to log HTTP-based connection: https://t.me/GNUWeeb/1167135
 
-usage: LD_PRELOAD=/path/to/gwconnlogger.so GWLOG_PATH=/tmp/log.txt curl http://google.com
-
-debugging: strace -e trace=connect /usr/bin/env LD_PRELOAD=/home/reyuki/software/my-code/gnuweeb/gweeb_connlogger/build/gwconnlogger.so curl -s http://google.com/ >/dev/null
-
-challenge link: https://t.me/GNUWeeb/1166930
+topic I learned on part 1:
+- linux shared library
+- inline assembly in C
+topic I learned on part 2:
+- managing context in C
+- parsing streamed data in C
