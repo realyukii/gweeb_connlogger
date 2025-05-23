@@ -5,6 +5,7 @@ This repository is part of GNU/Weeb challanges:
 topic I learned on part 1:
 - linux shared library
 - inline assembly in C
+
 topic I learned on part 2:
 - managing context in C
 - parsing streamed data in C

@@ -250,7 +250,6 @@ int close(int fd)
 		}
 
 		if (ctx != NULL) {
-			init_log();
 			time_t rawtime;
 			struct tm *timeinfo;
 			time(&rawtime);
@@ -260,7 +259,10 @@ int close(int fd)
 			formatted_time[strlen(formatted_time) - 1] = '\0';
 
 			char formatted_log[1024] = {0};
-			sprintf(formatted_log, "[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s", formatted_time, ctx->remote_addr, ctx->remote_port, ctx->http_method, ctx->http_path, ctx->http_host_hdr, ctx->http_code_status);
+			sprintf(formatted_log, "[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n", formatted_time, ctx->remote_addr, ctx->remote_port, ctx->http_method, ctx->http_path, ctx->http_host_hdr, ctx->http_code_status);
+
+			init_log();
+			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 
 			/* cleanup */
 			ctx->sockfd = -1;
