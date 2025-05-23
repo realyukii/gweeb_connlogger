@@ -12,6 +12,8 @@
 static FILE *log_file = NULL;
 struct http_ctx {
 	int sockfd;
+	int incr_send;
+	int incr_recv;
 	char remote_addr[INET6_ADDRSTRLEN];
 	uint16_t remote_port;
 	char is_http11;
@@ -35,6 +37,43 @@ static void init_log(void)
 		log_path = "/dev/null";
 
 	log_file = fopen(log_path, "a");
+}
+
+char validate_method(const char method[])
+{
+	const char *http_methods[] = {"GET", "POST", "HEAD", "PATCH", "PUT", "DELETE", "OPTIONS", "CONNECT", "TRACE", NULL};
+	char valid = 0;
+	const char **ptr = http_methods;
+	while (*ptr)
+	{
+		const char *method = *ptr;
+		const char *first_bytes = method;
+		while (*method)
+		{
+			if (*first_bytes != *method)
+				valid = 0;
+			else
+				valid = 1;
+			first_bytes++;
+			method++;
+		}
+		if (valid)
+			break;
+		ptr++;
+	}
+
+	return valid;
+}
+
+void unwatch_connection(struct http_ctx *ctx)
+{
+	ctx->sockfd = -1;
+	ctx->incr_recv = 0;
+	ctx->incr_send = 0;
+	free(ctx->http_method);
+	free(ctx->http_path);
+	free(ctx->http_host_hdr);
+	free(ctx->http_code_status);
 }
 
 int socket(int domain, int type, int protocol)
@@ -88,19 +127,31 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		}
 
 		if (ctx != NULL) {
+			uint16_t port;
 			switch (addr->sa_family) {
 			case AF_INET:
+					port = ntohs(((struct sockaddr_in *)addr)->sin_port);
+					/* something using AF_INET and strangely use port zero */
+					if (port == 0) {
+						unwatch_connection(ctx);
+						break;
+					}
 					inet_ntop(AF_INET, &(((struct sockaddr_in *)addr)->sin_addr), ctx->remote_addr, INET_ADDRSTRLEN);
-					ctx->remote_port = ntohs(((struct sockaddr_in *)addr)->sin_port);
+					ctx->remote_port = port;
 				break;
 			case AF_INET6:
+					port = ntohs(((struct sockaddr_in6 *)addr)->sin6_port);
+					/* something using AF_INET6 and strangely use port zero */
+					if (port == 0) {
+						unwatch_connection(ctx);
+						break;
+					}
+
 					inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)addr)->sin6_addr), ctx->remote_addr, INET6_ADDRSTRLEN);
-					ctx->remote_port = ntohs(((struct sockaddr_in6 *)addr)->sin6_port);
+					ctx->remote_port = port;
 				break;
 			}
 		}
-
-		fflush(log_file);
 	}
 
 	if (ret < 0) {
@@ -143,6 +194,12 @@ ssize_t send(int sockfd, const void *buf, size_t size, int flags)
 		}
 
 		if (ctx != NULL) {
+			ctx->incr_send += 1;
+			if (ctx->incr_send == 1 && !validate_method(buf)) {
+				unwatch_connection(ctx);
+				return ret;
+			}
+
 			char tmpbuf[ret];
 			strncpy(tmpbuf, buf, ret);
 			char *method = strtok(tmpbuf, " ");
@@ -159,6 +216,7 @@ ssize_t send(int sockfd, const void *buf, size_t size, int flags)
 			strcpy(ctx->http_host_hdr, host);
 		}
 	}
+
 	return ret;
 }
 
@@ -245,11 +303,7 @@ int close(int fd)
 			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 
 			/* cleanup */
-			ctx->sockfd = -1;
-			free(ctx->http_method);
-			free(ctx->http_path);
-			free(ctx->http_host_hdr);
-			free(ctx->http_code_status);
+			unwatch_connection(ctx);
 		}
 	}
 
