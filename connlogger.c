@@ -111,9 +111,9 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 		}
 
 		if (ctx != NULL) {
-			/* increment amount of sendto call */
+			/* increment amount of sendto call, fow now it's unused */
 			ctx->incr_send += 1;
-			if (ctx->incr_send == 1 && !validate_method(buf)) {
+			if (!validate_method(buf)) {
 				unwatch_connection(ctx);
 				return;
 			}
@@ -191,9 +191,10 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 
 			init_log();
 			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
-			fflush(log_file);
 
-			unwatch_connection(ctx);
+			/* flush the stored bytes instead of clean-up resources */
+			memset(ctx->raw_http_req_hdr, 0, 1024 * 1024);
+			memset(ctx->raw_http_res_hdr, 0, 1024 * 1024);
 		}
 	}
 }
@@ -212,6 +213,10 @@ int socket(int domain, int type, int protocol)
 	);
 
 	if (ret < 0) {
+		/* QUESTION:
+		* is manually set errno necessary? quote from the manual: 'which is set by system calls'
+		* isn't it already handled by inline assembly above?
+		*/
 		errno = -ret;
 		ret = -1;
 	} else {
