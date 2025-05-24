@@ -311,6 +311,8 @@ ssize_t recvfrom(int sockfd, void *buf, size_t size, int flags, struct sockaddr 
 				init_log();
 				fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 				fflush(log_file);
+
+				unwatch_connection(ctx);
 			}
 		}
 	}
