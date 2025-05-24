@@ -12,8 +12,6 @@
 static FILE *log_file = NULL;
 struct http_ctx {
 	int sockfd;
-	int incr_send;
-	int incr_recv;
 	char remote_addr[INET6_ADDRSTRLEN];
 	uint16_t remote_port;
 	char *raw_http_req_hdr;
@@ -93,8 +91,6 @@ char validate_http_ver(const char bytes[])
 void unwatch_connection(struct http_ctx *ctx)
 {
 	ctx->sockfd = -1;
-	ctx->incr_recv = 0;
-	ctx->incr_send = 0;
 	free(ctx->raw_http_req_hdr);
 	free(ctx->raw_http_res_hdr);
 }
@@ -111,8 +107,6 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 		}
 
 		if (ctx != NULL) {
-			/* increment amount of sendto call, fow now it's unused */
-			ctx->incr_send += 1;
 			if (!validate_method(buf)) {
 				unwatch_connection(ctx);
 				return;
@@ -155,8 +149,6 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 	}
 
 	if (ctx != NULL) {
-		/* increment amount of recvfrom call, for now it's unused */
-		ctx->incr_recv += 1;
 		if (strlen(ctx->raw_http_res_hdr) >= 9 && !validate_http_ver(ctx->raw_http_res_hdr)) {
 			unwatch_connection(ctx);
 			return;
