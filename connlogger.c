@@ -38,6 +38,7 @@ static void init_log(void)
 		log_path = "/dev/null";
 
 	log_file = fopen(log_path, "a");
+	setvbuf(log_file, NULL, _IOLBF, 0);
 }
 
 char validate_method(const char method[])
@@ -282,7 +283,7 @@ ssize_t recvfrom(int sockfd, void *buf, size_t size, int flags, struct sockaddr 
 			strncat(ctx->raw_http_res_hdr, buf, ret);
 			char end_header[] = "\r\n\r\n";
 			char end_of_header = 0;
-			if (strstr(buf, end_header) != NULL)
+			if (strstr(ctx->raw_http_res_hdr, end_header) != NULL)
 				end_of_header = 1;
 
 			/* data ready to be parsed */
