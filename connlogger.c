@@ -205,6 +205,7 @@ ssize_t sendto(int sockfd, const void *buf, size_t size, int flags, const struct
 		}
 
 		if (ctx != NULL) {
+			/* increment amount of sendto call */
 			ctx->incr_send += 1;
 			if (ctx->incr_send == 1 && !validate_method(buf)) {
 				unwatch_connection(ctx);
@@ -273,8 +274,9 @@ ssize_t recvfrom(int sockfd, void *buf, size_t size, int flags, struct sockaddr 
 		}
 
 		if (ctx != NULL) {
+			/* increment amount of recvfrom call, for now it's unused */
 			ctx->incr_recv += 1;
-			if (ctx->incr_recv == 1 && !validate_http_ver(buf)) {
+			if (strlen(ctx->raw_http_res_hdr) >= 9 && !validate_http_ver(ctx->raw_http_res_hdr)) {
 				unwatch_connection(ctx);
 				return ret;
 			}
