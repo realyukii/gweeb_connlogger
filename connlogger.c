@@ -16,13 +16,12 @@ struct http_ctx {
 	int incr_recv;
 	char remote_addr[INET6_ADDRSTRLEN];
 	uint16_t remote_port;
-	char is_http11;
 	char *raw_http_req_hdr;
 	char *raw_http_res_hdr;
-	char *http_method;
-	char *http_path;
-	char *http_host_hdr;
-	char *http_code_status;
+	char http_method[8 + 1];
+	char http_path[8000 + 1];
+	char http_host_hdr[63 + 253 + 1];
+	char http_code_status[3 + 1];
 };
 static struct http_ctx network_state[POOL_SZ] = {
 	[0 ... POOL_SZ-1] = { .sockfd = -1 }
@@ -46,18 +45,41 @@ char validate_method(const char method[])
 	const char *http_methods[] = {"GET", "POST", "HEAD", "PATCH", "PUT", "DELETE", "OPTIONS", "CONNECT", "TRACE", NULL};
 	char valid = 0;
 	const char **ptr = http_methods;
-	while (*ptr)
-	{
-		const char *method = *ptr;
+	while (*ptr) {
+		const char *http_method = *ptr;
 		const char *first_bytes = method;
-		while (*method)
-		{
-			if (*first_bytes != *method)
+		while (*http_method) {
+			if (*first_bytes != *http_method)
 				valid = 0;
 			else
 				valid = 1;
 			first_bytes++;
-			method++;
+			http_method++;
+		}
+		if (valid)
+			break;
+		ptr++;
+	}
+
+	return valid;
+}
+
+char validate_http_ver(const char bytes[])
+{
+	/* for now only support logging for HTTP/1.1 */
+	const char *http_ver_list[] = {"HTTP/1.1", NULL};
+	char valid = 0;
+	const char **ptr = http_ver_list;
+	while (*ptr) {
+		const char *http_ver = *ptr;
+		const char *first_bytes = bytes;
+		while (*http_ver) {
+			if (*first_bytes != *http_ver)
+				valid = 0;
+			else
+				valid = 1;
+			first_bytes++;
+			http_ver++;
 		}
 		if (valid)
 			break;
@@ -72,10 +94,8 @@ void unwatch_connection(struct http_ctx *ctx)
 	ctx->sockfd = -1;
 	ctx->incr_recv = 0;
 	ctx->incr_send = 0;
-	free(ctx->http_method);
-	free(ctx->http_path);
-	free(ctx->http_host_hdr);
-	free(ctx->http_code_status);
+	free(ctx->raw_http_req_hdr);
+	free(ctx->raw_http_res_hdr);
 }
 
 int socket(int domain, int type, int protocol)
@@ -99,6 +119,7 @@ int socket(int domain, int type, int protocol)
 			if (network_state[i].sockfd == -1 && (domain == AF_INET || domain == AF_INET6)) {
 				network_state[i].sockfd = ret;
 				network_state[i].raw_http_req_hdr = calloc(1, 1024);
+				network_state[i].raw_http_res_hdr = calloc(1, 1024);
 				break;
 			}
 		}
@@ -151,10 +172,10 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	return ret;
 }
 
-ssize_t sendto(int sockfd, const void *buf, size_t size, int flags, struct sockaddr *dst_addr, socklen_t addrlen)
+ssize_t sendto(int sockfd, const void *buf, size_t size, int flags, const struct sockaddr *dst_addr, socklen_t addrlen)
 {
 	register int _flags asm("r10") = flags;
-	register struct sockaddr *_dest_addr asm("r8") = dst_addr;
+	register const struct sockaddr *_dest_addr asm("r8") = dst_addr;
 	register socklen_t _dest_len asm("r9") = addrlen;
 	int ret;
 	asm volatile (
@@ -189,20 +210,36 @@ ssize_t sendto(int sockfd, const void *buf, size_t size, int flags, struct socka
 				return ret;
 			}
 
-			/* TODO: concat HTTP data until \r\n\r\n */
-			char end_header[] = "\r\n\r\n";
-			for (size_t i = 0; i < ret; i++) {
-				if (strcmp(&((char *)buf)[i], end_header) == 0) {
-					asm volatile ("int3");
-				}
-			}
-			
+			/* concat HTTP request header until \r\n\r\n */
 			strncat(ctx->raw_http_req_hdr, buf, ret);
+
+			/* check for line break */
+			char end_header[] = "\r\n\r\n";
+			char end_of_header = 0;
+			if (strstr(buf, end_header) != NULL)
+				end_of_header = 1;
+
+			/* data ready to be parsed */
+			if (end_of_header == 1) {
+				int str_len = strlen(ctx->raw_http_req_hdr);
+				char tmpstr[str_len];
+				strcpy(tmpstr, ctx->raw_http_req_hdr);
+				const char keyword[] = "Host:";
+				const char *method = strtok(tmpstr, " ");
+				const char *path = strtok(NULL, " ");
+
+				char *http_host_hdr = strcasestr(ctx->raw_http_req_hdr, keyword);
+				strtok(http_host_hdr, "\r\n");
+				strcpy(ctx->http_method, method);
+				strcpy(ctx->http_path, path);
+				strcpy(ctx->http_host_hdr, http_host_hdr);
+			}
 		}
 	}
 
 	return ret;
 }
+
 ssize_t recvfrom(int sockfd, void *buf, size_t size, int flags, struct sockaddr *src_addr, socklen_t *addrlen)
 {
 	register int _flags asm("r10") = flags;
@@ -235,15 +272,43 @@ ssize_t recvfrom(int sockfd, void *buf, size_t size, int flags, struct sockaddr 
 		}
 
 		if (ctx != NULL) {
-			// strtok(buf, " ");
-			// char *response_code = strtok(0, " ");
-			char *dummy_resp_code = malloc(4);
-			strcpy(dummy_resp_code, "200");
-			char *response_code = dummy_resp_code;
-			init_log();
+			ctx->incr_recv += 1;
+			if (ctx->incr_recv == 1 && !validate_http_ver(buf)) {
+				unwatch_connection(ctx);
+				return ret;
+			}
 
-			ctx->http_code_status = malloc(strlen(response_code));
-			strcpy(ctx->http_code_status, response_code);
+			/* concat HTTP response header until \r\n\r\n */
+			strncat(ctx->raw_http_res_hdr, buf, ret);
+			char end_header[] = "\r\n\r\n";
+			char end_of_header = 0;
+			if (strstr(buf, end_header) != NULL)
+				end_of_header = 1;
+
+			/* data ready to be parsed */
+			if (end_of_header == 1) {
+				char tmpbuf[strlen(ctx->raw_http_res_hdr)];
+				char *response_code;
+				strcpy(tmpbuf, ctx->raw_http_res_hdr);
+				strtok(tmpbuf, " ");
+				response_code = strtok(NULL, " ");
+				strcpy(ctx->http_code_status, response_code);
+
+				time_t rawtime;
+				struct tm *timeinfo;
+				time(&rawtime);
+				timeinfo = localtime(&rawtime);
+				char formatted_time[255];
+				strcpy(formatted_time, asctime(timeinfo));
+				formatted_time[strlen(formatted_time) - 1] = '\0';
+
+				char formatted_log[1024] = {0};
+				sprintf(formatted_log, "[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n", formatted_time, ctx->remote_addr, ctx->remote_port, ctx->http_method, ctx->http_path, ctx->http_host_hdr, ctx->http_code_status);
+
+				init_log();
+				fwrite(formatted_log, strlen(formatted_log), 1, log_file);
+				fflush(log_file);
+			}
 		}
 	}
 
@@ -252,7 +317,7 @@ ssize_t recvfrom(int sockfd, void *buf, size_t size, int flags, struct sockaddr 
 
 ssize_t send(int sockfd, const void *buf, size_t size, int flags)
 {
-	return sendto(fd, buf, size, flags, NULL, 0);
+	return sendto(sockfd, buf, size, flags, NULL, 0);
 }
 
 ssize_t recv(int sockfd, void *buf, size_t size, int flags)
@@ -284,26 +349,6 @@ int close(int fd)
 		}
 
 		if (ctx != NULL) {
-			/* some program apperently do socket() -> close() sequence.  */
-			if (ctx->incr_send == 0) {
-				unwatch_connection(ctx);
-				return ret;
-			}
-
-			time_t rawtime;
-			struct tm *timeinfo;
-			time(&rawtime);
-			timeinfo = localtime(&rawtime);
-			char formatted_time[255];
-			strcpy(formatted_time, asctime(timeinfo));
-			formatted_time[strlen(formatted_time) - 1] = '\0';
-
-			char formatted_log[1024] = {0};
-			sprintf(formatted_log, "[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n", formatted_time, ctx->remote_addr, ctx->remote_port, ctx->http_method, ctx->http_path, ctx->http_host_hdr, ctx->http_code_status);
-
-			init_log();
-			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
-
 			unwatch_connection(ctx);
 		}
 	}
