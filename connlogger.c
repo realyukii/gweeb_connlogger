@@ -345,6 +345,10 @@ int close(int fd)
 		errno = -ret;
 		ret = -1;
 	} else {
+		/*
+		* some 'unwanted' socket file descriptor still accidently registered on context, so we need to unwatch it if any
+		* my gdb session shows it only perform socket() -> close() sequence
+		*/
 		struct http_ctx *ctx = NULL;
 		for (size_t i = 0; i < POOL_SZ; i++) {
 			if (network_state[i].sockfd == fd) {
