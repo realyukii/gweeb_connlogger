@@ -1,3 +1,4 @@
+#define _GNU_SOURCE // for strcasestr
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdio.h>
@@ -8,22 +9,52 @@
 #include <unistd.h>
 
 #define POOL_SZ 100
+#define REQ_QUEUE_SZ 8
 
 static FILE *log_file = NULL;
+
+struct http_req {
+	char http_method[8 + 1];
+	char http_path[8000 + 1];
+	char http_host_hdr[63 + 253 + 1];
+};
+
+struct http_req_queue {
+	int head;
+	int tail;
+	struct http_req array[REQ_QUEUE_SZ];
+};
+
 struct http_ctx {
 	int sockfd;
 	char remote_addr[INET6_ADDRSTRLEN];
 	uint16_t remote_port;
+	struct http_req_queue http_req_queue;
 	char *raw_http_req_hdr;
 	char *raw_http_res_hdr;
-	char http_method[8 + 1];
-	char http_path[8000 + 1];
-	char http_host_hdr[63 + 253 + 1];
 	char http_code_status[3 + 1];
 };
+
 static struct http_ctx network_state[POOL_SZ] = {
 	[0 ... POOL_SZ-1] = { .sockfd = -1 }
 };
+
+void enqueue(struct http_req_queue *q, struct http_req http_req)
+{
+	// TODO: make sure the queue is not full
+	q->array[q->tail] = http_req;
+	q->tail++;
+}
+
+/* return front item and dequeue */
+struct http_req front(struct http_req_queue *q)
+{
+	// TODO: make sure the queue is not empty
+	struct http_req req = q->array[q->head];
+
+	q->head++;
+	return req;
+}
 
 static void init_log(void)
 {
@@ -132,9 +163,14 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 
 				char *http_host_hdr = strcasestr(ctx->raw_http_req_hdr, keyword);
 				strtok(http_host_hdr, "\r\n");
-				strcpy(ctx->http_method, method);
-				strcpy(ctx->http_path, path);
-				strcpy(ctx->http_host_hdr, http_host_hdr);
+
+				struct http_req req;
+				strcpy(req.http_method, method);
+				strcpy(req.http_path, path);
+				strcpy(req.http_host_hdr, http_host_hdr);
+
+				enqueue(&ctx->http_req_queue, req);
+				memset(ctx->raw_http_req_hdr, 0, 1024 * 1024);
 			}
 		}
 }
@@ -150,7 +186,7 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 
 	if (ctx != NULL) {
 		if (strlen(ctx->raw_http_res_hdr) >= 9 && !validate_http_ver(ctx->raw_http_res_hdr)) {
-			unwatch_connection(ctx);
+			// unwatch_connection(ctx);
 			return;
 		}
 
@@ -163,6 +199,7 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 
 		/* data ready to be parsed */
 		if (end_of_header == 1) {
+			struct http_req req = front(&ctx->http_req_queue);
 			char tmpbuf[strlen(ctx->raw_http_res_hdr)];
 			char *response_code;
 			strcpy(tmpbuf, ctx->raw_http_res_hdr);
@@ -179,13 +216,11 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 			formatted_time[strlen(formatted_time) - 1] = '\0';
 
 			char formatted_log[1024] = {0};
-			sprintf(formatted_log, "[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n", formatted_time, ctx->remote_addr, ctx->remote_port, ctx->http_method, ctx->http_path, ctx->http_host_hdr, ctx->http_code_status);
+			sprintf(formatted_log, "[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n", formatted_time, ctx->remote_addr, ctx->remote_port, req.http_method, req.http_path, req.http_host_hdr, ctx->http_code_status);
 
 			init_log();
 			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 
-			/* flush the stored bytes instead of clean-up resources */
-			memset(ctx->raw_http_req_hdr, 0, 1024 * 1024);
 			memset(ctx->raw_http_res_hdr, 0, 1024 * 1024);
 		}
 	}
@@ -292,7 +327,6 @@ ssize_t sendto(int sockfd, const void *buf, size_t size, int flags, const struct
 		errno = -ret;
 		ret = -1;
 	} else {
-		/* TODO: test short recv? */
 		handle_parsing_localbuf(sockfd, buf, ret);
 	}
 
@@ -345,7 +379,7 @@ ssize_t read(int fd, void *buf, size_t count)
 		errno = -ret;
 		ret = -1;
 	} else {
-		handle_parsing_localbuf(fd, buf, count);
+		handle_parsing_networkbuf(fd, buf, count);
 	}
 
 	return ret;
@@ -368,7 +402,7 @@ ssize_t write(int fd, const void *buf, size_t count)
 		errno = -ret;
 		ret = -1;
 	} else {
-		handle_parsing_networkbuf(fd, buf, count);
+		handle_parsing_localbuf(fd, buf, ret);
 	}
 
 	return ret;

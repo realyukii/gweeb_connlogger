@@ -16,6 +16,23 @@ list of used glibc's function:
 - `fwrite`
 - `getenv`
 
+### alur program
+alur programnya saat ini:
+- Jika domain nya `AF_INET` or `AF_INET6` maka register `sockfd` setiap kali fungsi `socket` dipanggil untuk di-watch dan di-log.
+- jika first bytes `buffer` pada first call `send` tidak identik dengan HTTP protocol, un-watch `sockfd` nya
+- parameter `buffer` data pada `send`, `recv`, `read` dan `write` yang terkait dengan `sockfd` yang di-watch akan ditampung untuk nantinya di-parse
+- setiap berhasil melakukan parsing pada buffer send/write masukkan hasil parse kedalam queue untuk nantinya di-dequeue
+- setiap berasil melakukan parsing pada buffer recv/read, cocokkan dengan buffer yang ada pada send/write dengan melakukan dequeue dan tulis log yang sudah terformat kedalam file
+
+skenario tertentu yang saat ini dapat ditangani:
+- re-use existing socket
+- TODO: short recv dan short send
+
+additional note:
+- `recvfrom` dan `sendto` digunakan untuk jaga-jaga jika ada program yang langsung call ke situ dan gak ke-catch di `send` ataupun `recv`
+- intercept `read` dan `write` juga karena program seperti `nc` menggunakan syscall tersebut untuk mengirim dan menerima paket 
+
+
 ### inline assembly
 ```
 __asm__ volatile (
