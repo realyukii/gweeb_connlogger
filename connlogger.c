@@ -190,16 +190,13 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 		/* handle partial recv by concat HTTP response header until \r\n\r\n */
 		strncat(ctx->raw_http_res_hdr, buf, buf_len);
 
-		int is_http = find_http_version(ctx->raw_http_res_hdr);
-		is_http = 1; // testing
-
 		char end_header[] = "\r\n\r\n";
 		char end_of_header = 0;
 		if (strstr(ctx->raw_http_res_hdr, end_header) != NULL)
 			end_of_header = 1;
 
 		/* data ready to be parsed */
-		if (is_http == 1 && end_of_header == 1) {
+		if (end_of_header == 1) {
 			struct http_req req = front(&ctx->http_req_queue);
 			char tmpbuf[strlen(ctx->raw_http_res_hdr)];
 			char *response_code;
