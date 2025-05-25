@@ -35,8 +35,9 @@ setelah parsing selesai dilakukan dan dipastikan tidak ada masalah, baru tulis k
 lalu gantikan tampungannya dengan data yang baru
 
 skenario tertentu yang saat ini dapat ditangani:
+- fitur HTTP pipeline
 - re-use existing socket
-- TODO: short recv dan short send
+- short recv dan short send
 
 additional note:
 - `recvfrom` dan `sendto` digunakan untuk jaga-jaga jika ada program yang langsung call ke situ dan gak ke-catch di `send` ataupun `recv`

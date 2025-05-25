@@ -127,20 +127,6 @@ void unwatch_connection(struct http_ctx *ctx)
 	free(ctx->raw_http_res_hdr);
 }
 
-int find_http_signature(char *buffer)
-{
-	/*
-	* locate HTTP method and set the buffer pointer to it
-	*/
-}
-
-int find_http_version(char *buffer)
-{
-	/*
-	* locate HTTP version and set the buffer pointer to it
-	*/
-}
-
 void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 {
 
@@ -153,12 +139,7 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 		}
 
 		if (ctx != NULL) {
-			// if (!validate_method(ctx->raw_http_req_hdr)) {
-			// 	// unwatch_connection(ctx);
-			// 	return;
-			// }
-
-			/* concat HTTP request header until \r\n\r\n */
+			/* handle partial send by concat HTTP request header until \r\n\r\n */
 			strncat(ctx->raw_http_req_hdr, buf, buf_len);
 
 			char end_header[] = "\r\n\r\n";
@@ -191,6 +172,7 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 			}
 		}
 }
+
 void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 {
 	struct http_ctx *ctx = NULL;
@@ -202,12 +184,10 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 	}
 
 	if (ctx != NULL) {
-		if (strlen(ctx->raw_http_res_hdr) >= 9 && !validate_http_ver(ctx->raw_http_res_hdr)) {
-		// 	unwatch_connection(ctx);
+		if (strlen(ctx->raw_http_res_hdr) >= 9 && !validate_http_ver(ctx->raw_http_res_hdr))
 			return;
-		}
 
-		/* concat HTTP response header until \r\n\r\n */
+		/* handle partial recv by concat HTTP response header until \r\n\r\n */
 		strncat(ctx->raw_http_res_hdr, buf, buf_len);
 
 		int is_http = find_http_version(ctx->raw_http_res_hdr);
@@ -242,8 +222,6 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 			init_log();
 			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 
-			/* move the next http header if any */
-			// memmove(ctx->raw_http_res_hdr, );
 			memset(ctx->raw_http_res_hdr, 0, RAW_BUFF_SZ);
 		}
 	}
