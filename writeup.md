@@ -72,7 +72,12 @@ dikutip dari SystemV ABI:
 > user-level applications use as integer registers for passing the sequence %rdi, %rsi, %rdx, %rcx, %r8 and %r9. The kernel interface uses %rdi, %rsi, %rdx, %r10, %r8 and %r9.
 
 calling convention untuk function user-level application dan linux kernel system call itu berbeda.
+---
 
+queue abstract data type is used to support re-use existing socket for multiple HTTP request
+---
+
+to support HTTP pipeline, I need to instruct the program to looking for possible additional HTTP request by scan the entire recvfrom/read buffer
 ### Weird stuff
 ```
 [reyuki@zero gweeb_connlogger]$  strace -e trace=connect /usr/bin/env LD_PRELOAD=/home/reyuki/software/my-code/gnuweeb/gweeb_connlogger/build/gwconnlogger.so curl -s http://google.com/ >/dev/null

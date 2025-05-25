@@ -11,7 +11,7 @@
 #define RAW_BUFF_SZ 1024 * 1024
 #define POOL_SZ 100
 #define REQ_QUEUE_SZ 8
-
+#define LINEBREAK_LEN 4
 static FILE *log_file = NULL;
 
 struct http_req {
@@ -127,6 +127,20 @@ void unwatch_connection(struct http_ctx *ctx)
 	free(ctx->raw_http_res_hdr);
 }
 
+int find_http_signature(char *buffer)
+{
+	/*
+	* locate HTTP method and set the buffer pointer to it
+	*/
+}
+
+int find_http_version(char *buffer)
+{
+	/*
+	* locate HTTP version and set the buffer pointer to it
+	*/
+}
+
 void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 {
 
@@ -147,31 +161,33 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 			/* concat HTTP request header until \r\n\r\n */
 			strncat(ctx->raw_http_req_hdr, buf, buf_len);
 
-			/* check for line break */
 			char end_header[] = "\r\n\r\n";
-			char end_of_header = 0;
-			if (strstr(buf, end_header) != NULL)
-				end_of_header = 1;
+			char *start = ctx->raw_http_req_hdr;
+			char *pos;
 
-			/* data ready to be parsed */
-			if (end_of_header == 1) {
-				int str_len = strlen(ctx->raw_http_req_hdr);
-				char tmpstr[str_len];
-				strcpy(tmpstr, ctx->raw_http_req_hdr);
-				const char keyword[] = "Host:";
-				const char *method = strtok(tmpstr, " ");
-				const char *path = strtok(NULL, " ");
+			/* enqueue more than one times if the buffer have multiple request (HTTP pipeline) */
+			while ((pos = strstr(start, end_header)) != NULL) {
+				*pos = '\0';
+				/* data ready to be parsed */
+				if (validate_method(start) == 1) {
+					int str_len = strlen(start);
+					char tmpstr[str_len];
+					strcpy(tmpstr, start);
+					const char keyword[] = "Host:";
+					const char *method = strtok(tmpstr, " ");
+					const char *path = strtok(NULL, " ");
 
-				char *http_host_hdr = strcasestr(ctx->raw_http_req_hdr, keyword);
-				strtok(http_host_hdr, "\r\n");
+					char *http_host_hdr = strcasestr(start, keyword);
+					strtok(http_host_hdr, "\r\n");
 
-				struct http_req req;
-				strcpy(req.http_method, method);
-				strcpy(req.http_path, path);
-				strcpy(req.http_host_hdr, http_host_hdr);
+					struct http_req req;
+					strcpy(req.http_method, method);
+					strcpy(req.http_path, path);
+					strcpy(req.http_host_hdr, http_host_hdr);
 
-				enqueue(&ctx->http_req_queue, req);
-				memset(ctx->raw_http_req_hdr, 0, RAW_BUFF_SZ);
+					enqueue(&ctx->http_req_queue, req);
+				}
+				start = pos + LINEBREAK_LEN;
 			}
 		}
 }
@@ -187,19 +203,23 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 
 	if (ctx != NULL) {
 		if (strlen(ctx->raw_http_res_hdr) >= 9 && !validate_http_ver(ctx->raw_http_res_hdr)) {
-			// unwatch_connection(ctx);
+		// 	unwatch_connection(ctx);
 			return;
 		}
 
 		/* concat HTTP response header until \r\n\r\n */
 		strncat(ctx->raw_http_res_hdr, buf, buf_len);
+
+		int is_http = find_http_version(ctx->raw_http_res_hdr);
+		is_http = 1; // testing
+
 		char end_header[] = "\r\n\r\n";
 		char end_of_header = 0;
 		if (strstr(ctx->raw_http_res_hdr, end_header) != NULL)
 			end_of_header = 1;
 
 		/* data ready to be parsed */
-		if (end_of_header == 1) {
+		if (is_http == 1 && end_of_header == 1) {
 			struct http_req req = front(&ctx->http_req_queue);
 			char tmpbuf[strlen(ctx->raw_http_res_hdr)];
 			char *response_code;
@@ -212,7 +232,7 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 			struct tm *timeinfo;
 			time(&rawtime);
 			timeinfo = localtime(&rawtime);
-			char formatted_time[255];
+			char formatted_time[32];
 			strcpy(formatted_time, asctime(timeinfo));
 			formatted_time[strlen(formatted_time) - 1] = '\0';
 
@@ -222,6 +242,8 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 			init_log();
 			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 
+			/* move the next http header if any */
+			// memmove(ctx->raw_http_res_hdr, );
 			memset(ctx->raw_http_res_hdr, 0, RAW_BUFF_SZ);
 		}
 	}
