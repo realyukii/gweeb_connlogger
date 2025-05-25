@@ -24,6 +24,16 @@ alur programnya saat ini:
 - setiap berhasil melakukan parsing pada buffer send/write masukkan hasil parse kedalam queue untuk nantinya di-dequeue
 - setiap berasil melakukan parsing pada buffer recv/read, cocokkan dengan buffer yang ada pada send/write dengan melakukan dequeue dan tulis log yang sudah terformat kedalam file
 
+karena kita tidak dapat mengendalikan atau menebak berapa bytes buffer yang akan kita proses, maka hal yang pertama dilakukan adalah menampungnya terlebih dahulu
+
+dan sembari menampung, kita mencoba me-locate atau menentukan awal dan akhir data header HTTP:
+- untuk mengetahui awal-nya dapat diidentifikasi melalui HTTP method
+- sementara untuk mengetahui akhirnya dapat diidentifikasi melalui double linebreak (\r\n\r\n atau CRLF CRLF)
+
+jika sudah dapat ditentukan awal dan akhir nya, maka lanjut ke proses parsing
+setelah parsing selesai dilakukan dan dipastikan tidak ada masalah, baru tulis kedalam log
+lalu gantikan tampungannya dengan data yang baru
+
 skenario tertentu yang saat ini dapat ditangani:
 - re-use existing socket
 - TODO: short recv dan short send

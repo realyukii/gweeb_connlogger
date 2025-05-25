@@ -8,6 +8,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#define RAW_BUFF_SZ 1024 * 1024
 #define POOL_SZ 100
 #define REQ_QUEUE_SZ 8
 
@@ -138,10 +139,10 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 		}
 
 		if (ctx != NULL) {
-			if (!validate_method(buf)) {
-				unwatch_connection(ctx);
-				return;
-			}
+			// if (!validate_method(ctx->raw_http_req_hdr)) {
+			// 	// unwatch_connection(ctx);
+			// 	return;
+			// }
 
 			/* concat HTTP request header until \r\n\r\n */
 			strncat(ctx->raw_http_req_hdr, buf, buf_len);
@@ -170,7 +171,7 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 				strcpy(req.http_host_hdr, http_host_hdr);
 
 				enqueue(&ctx->http_req_queue, req);
-				memset(ctx->raw_http_req_hdr, 0, 1024 * 1024);
+				memset(ctx->raw_http_req_hdr, 0, RAW_BUFF_SZ);
 			}
 		}
 }
@@ -221,7 +222,7 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 			init_log();
 			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 
-			memset(ctx->raw_http_res_hdr, 0, 1024 * 1024);
+			memset(ctx->raw_http_res_hdr, 0, RAW_BUFF_SZ);
 		}
 	}
 }
@@ -250,8 +251,8 @@ int socket(int domain, int type, int protocol)
 		for (size_t i = 0; i < POOL_SZ; i++) {
 			if (network_state[i].sockfd == -1 && (domain == AF_INET || domain == AF_INET6)) {
 				network_state[i].sockfd = ret;
-				network_state[i].raw_http_req_hdr = calloc(1, 1024 * 1024);
-				network_state[i].raw_http_res_hdr = calloc(1, 1024 * 1024);
+				network_state[i].raw_http_req_hdr = calloc(1, RAW_BUFF_SZ);
+				network_state[i].raw_http_res_hdr = calloc(1, RAW_BUFF_SZ);
 				break;
 			}
 		}
