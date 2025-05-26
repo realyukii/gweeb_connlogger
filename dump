@@ -1,0 +1,159 @@
+analyze compiled handle_parsing_localbuf function, the library is compiled with: `gcc -shared -Os -g3 -fpic -fPIC`
+
+prologue
+```
+Dump of assembler code for function handle_parsing_localbuf:
+=> 0x00007ffff7801411 <+0>:     push   %rbp
+   0x00007ffff7801412 <+1>:     lea    0x2d47(%rip),%rcx        # 0x7ffff7804160 <network_state>
+   0x00007ffff7801419 <+8>:     mov    %rsp,%rbp
+   0x00007ffff780141c <+11>:    push   %r15
+   0x00007ffff780141e <+13>:    push   %r14
+   0x00007ffff7801420 <+15>:    push   %r13
+   0x00007ffff7801422 <+17>:    mov    %rcx,%r13
+   0x00007ffff7801425 <+20>:    push   %r12
+   0x00007ffff7801427 <+22>:    push   %rbx
+   0x00007ffff7801428 <+23>:    sub    $0x20b8,%rsp
+```
+- save callee-saved register (rbp, r13, r14, r15, r12, rbx)
+- move network_state to rcx
+- create a stack frame by move current value of rsp to rbp
+- move network_state from rcx to r13
+- subtract rsp
+
+stack canary protection
+```
+   0x00007ffff780142f <+30>:    mov    %fs:0x28,%rax
+   0x00007ffff7801438 <+39>:    mov    %rax,-0x38(%rbp)
+```
+- set stack guard value (which initialised by linux loader) on the stack, see this post for details: https://unix.stackexchange.com/questions/453749/what-sets-fs0x28-stack-canary
+
+compare first parameter (sockfd) with network_state[i]
+```
+   0x00007ffff780143c <+43>:    xor    %eax,%eax
+   0x00007ffff780143e <+45>:    cmp    %edi,(%rcx)
+   0x00007ffff7801440 <+47>:    jne    0x7ffff7801476 <handle_parsing_localbuf+101>
+```
+- rax is the i variable
+
+```
+   0x00007ffff7801442 <+49>:    imul   $0x10490,%rax,%r12
+   0x00007ffff7801449 <+56>:    movslq %edx,%rdx
+   0x00007ffff780144c <+59>:    mov    0x10478(%r13,%r12,1),%rdi
+   0x00007ffff7801454 <+67>:    call   0x7ffff78010d0 <strncat@plt>
+   0x00007ffff7801459 <+72>:    mov    0x10478(%r13,%r12,1),%rbx
+   0x00007ffff7801461 <+80>:    movl   $0xa0d0a0d,-0x43(%rbp)
+   0x00007ffff7801468 <+87>:    lea    0x34(%r13,%r12,1),%r13
+   0x00007ffff780146d <+92>:    movb   $0x0,-0x3f(%rbp)
+   0x00007ffff7801471 <+96>:    jmp    0x7ffff7801576 <handle_parsing_localbuf+357>
+```
+- <+49>: multiply rax with size of struct http_ctx
+- <+56>: pass buff_len as third argument
+- compiler is clever enough to generate optimised code, in this case second argument (rsi) is already contain parameter buf
+- <+59>: moving ctx->raw_http_req_hdr to first argument of strncat by using r12 as index of array: r13[r12].raw_http_req_hdr
+- <+72>: initialize start with ctx->raw_http_req_hdr by move blablabla to rbx
+- <+80>: initialize variable end_header with \r\n\r\n
+- <+87>: don't know what it is
+- <+92>: don't know what it is
+
+```
+   0x00007ffff7801476 <+101>:   inc    %rax
+   0x00007ffff7801479 <+104>:   add    $0x10490,%rcx
+   0x00007ffff7801480 <+111>:   cmp    $0x64,%rax
+   0x00007ffff7801484 <+115>:   jne    0x7ffff780143e <handle_parsing_localbuf+45>
+   0x00007ffff7801486 <+117>:   jmp    0x7ffff780158e <handle_parsing_localbuf+381>
+```
+- increment variable i
+- shift to the next network_state[i] by add rcx with size of struct http_ctx
+- check if i < 100 (0x64)
+   - jne: if i less than 100 holds true
+   - jmp: loop over, time to exit from this function and return to the caller address
+
+block inside while loop
+```
+   0x00007ffff780148b <+122>:   movb   $0x0,(%r12)
+   0x00007ffff7801490 <+127>:   mov    %rbx,%rdi
+   0x00007ffff7801493 <+130>:   call   0x7ffff7801150 <validate_method@plt>
+   0x00007ffff7801498 <+135>:   dec    %al
+   0x00007ffff780149a <+137>:   jne    0x7ffff7801571 <handle_parsing_localbuf+352>
+   0x00007ffff78014a0 <+143>:   mov    %rbx,%rdi
+   0x00007ffff78014a3 <+146>:   mov    %rsp,-0x20d8(%rbp)
+   0x00007ffff78014aa <+153>:   call   0x7ffff7801090 <strlen@plt>
+   0x00007ffff78014af <+158>:   mov    %rbx,%rsi
+   0x00007ffff78014b2 <+161>:   cltq
+   0x00007ffff78014b4 <+163>:   add    $0xf,%rax
+   0x00007ffff78014b8 <+167>:   and    $0xfffffffffffffff0,%rax
+   0x00007ffff78014bc <+171>:   sub    %rax,%rsp
+   0x00007ffff78014bf <+174>:   mov    %rsp,%rdi
+   0x00007ffff78014c2 <+177>:   call   0x7ffff7801080 <strcpy@plt>
+   0x00007ffff78014c7 <+182>:   mov    %rsp,%rdi
+   0x00007ffff78014ca <+185>:   lea    0xb6d(%rip),%rsi        # 0x7ffff780203e
+   0x00007ffff78014d1 <+192>:   movl   $0x74736f48,-0x3e(%rbp)
+   0x00007ffff78014d8 <+199>:   movw   $0x3a,-0x3a(%rbp)
+   0x00007ffff78014de <+205>:   call   0x7ffff7801170 <strtok@plt>
+   0x00007ffff78014e3 <+210>:   lea    0xb54(%rip),%rsi        # 0x7ffff780203e
+   0x00007ffff78014ea <+217>:   xor    %edi,%edi
+   0x00007ffff78014ec <+219>:   mov    %rax,%r15
+   0x00007ffff78014ef <+222>:   call   0x7ffff7801170 <strtok@plt>
+   0x00007ffff78014f4 <+227>:   mov    %rbx,%rdi
+   0x00007ffff78014f7 <+230>:   lea    -0x3e(%rbp),%rsi
+   0x00007ffff78014fb <+234>:   mov    %rax,-0x20e0(%rbp)
+   0x00007ffff7801502 <+241>:   call   0x7ffff7801180 <strcasestr@plt>
+   0x00007ffff7801507 <+246>:   lea    0xb32(%rip),%rsi        # 0x7ffff7802040
+   0x00007ffff780150e <+253>:   mov    %rax,%rdi
+   0x00007ffff7801511 <+256>:   mov    %rax,%rbx
+   0x00007ffff7801514 <+259>:   call   0x7ffff7801170 <strtok@plt>
+   0x00007ffff7801519 <+264>:   mov    %r15,%rsi
+   0x00007ffff780151c <+267>:   lea    -0x20ca(%rbp),%rdi
+   0x00007ffff7801523 <+274>:   call   0x7ffff7801080 <strcpy@plt>
+   0x00007ffff7801528 <+279>:   mov    -0x20e0(%rbp),%rsi
+   0x00007ffff780152f <+286>:   lea    -0x20c1(%rbp),%rdi
+   0x00007ffff7801536 <+293>:   call   0x7ffff7801080 <strcpy@plt>
+   0x00007ffff780153b <+298>:   lea    -0x180(%rbp),%rdi
+   0x00007ffff7801542 <+305>:   mov    %rbx,%rsi
+   0x00007ffff7801545 <+308>:   call   0x7ffff7801080 <strcpy@plt>
+   0x00007ffff780154a <+313>:   sub    $0x2090,%rsp
+   0x00007ffff7801551 <+320>:   mov    $0x2087,%ecx
+   0x00007ffff7801556 <+325>:   lea    -0x20ca(%rbp),%rsi
+   0x00007ffff780155d <+332>:   mov    %rsp,%rdi
+   0x00007ffff7801560 <+335>:   rep movsb %ds:(%rsi),%es:(%rdi)
+   0x00007ffff7801562 <+337>:   mov    %r13,%rdi
+   0x00007ffff7801565 <+340>:   call   0x7ffff78011d0 <enqueue@plt>
+   0x00007ffff780156a <+345>:   mov    -0x20d8(%rbp),%rsp
+   0x00007ffff7801571 <+352>:   lea    0x4(%r12),%rbx
+```
+
+```
+   0x00007ffff7801576 <+357>:   lea    -0x43(%rbp),%rsi
+   0x00007ffff780157a <+361>:   mov    %rbx,%rdi
+   0x00007ffff780157d <+364>:   call   0x7ffff78011e0 <strstr@plt>
+   0x00007ffff7801582 <+369>:   mov    %rax,%r12
+   0x00007ffff7801585 <+372>:   test   %rax,%rax
+   0x00007ffff7801588 <+375>:   jne    0x7ffff780148b <handle_parsing_localbuf+122>
+```
+- pass end_header as second argument
+- pass start as first argument
+- move return value of strstr to r12
+- check if return value is null and if not null loop again
+
+stack overflow checking
+```
+   0x00007ffff780158e <+381>:   mov    -0x38(%rbp),%rax
+   0x00007ffff7801592 <+385>:   sub    %fs:0x28,%rax
+   0x00007ffff780159b <+394>:   je     0x7ffff78015a2 <handle_parsing_localbuf+401>
+   0x00007ffff780159d <+396>:   call   0x7ffff78010a0 <__stack_chk_fail@plt>
+   0x00007ffff78015a2 <+401>:   lea    -0x28(%rbp),%rsp
+```
+
+epilogue
+```
+   0x00007ffff78015a6 <+405>:   pop    %rbx
+   0x00007ffff78015a7 <+406>:   pop    %r12
+   0x00007ffff78015a9 <+408>:   pop    %r13
+   0x00007ffff78015ab <+410>:   pop    %r14
+   0x00007ffff78015ad <+412>:   pop    %r15
+   0x00007ffff78015af <+414>:   pop    %rbp
+   0x00007ffff78015b0 <+415>:   ret
+End of assembler dump.
+```
+- restore callee saved register (rbx, r12, r13, r14, r15, rbp)
+- go back to the return address
