@@ -37,7 +37,8 @@ lalu gantikan tampungannya dengan data yang baru
 skenario tertentu yang saat ini dapat ditangani:
 - fitur HTTP pipeline
 - re-use existing socket
-- short recv dan short send
+- short recv dan partial send
+- transfer encoding chunked
 
 additional note:
 - `recvfrom` dan `sendto` digunakan untuk jaga-jaga jika ada program yang langsung call ke situ dan gak ke-catch di `send` ataupun `recv`

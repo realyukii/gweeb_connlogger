@@ -9,3 +9,5 @@ topic I learned on part 1:
 topic I learned on part 2:
 - managing context in C
 - parsing streamed data in C
+- queue data structure
+- edge cases when handling HTTP connection
