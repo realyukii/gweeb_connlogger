@@ -254,8 +254,10 @@ int socket(int domain, int type, int protocol)
 		errno = -ret;
 		ret = -1;
 	} else {
+		if (domain == AF_INET || domain == AF_INET6)
+			return
 		for (size_t i = 0; i < POOL_SZ; i++) {
-			if (network_state[i].sockfd == -1 && (domain == AF_INET || domain == AF_INET6)) {
+			if (network_state[i].sockfd == -1) {
 				network_state[i].sockfd = ret;
 				network_state[i].raw_http_req_hdr = calloc(1, RAW_BUFF_SZ);
 				network_state[i].raw_http_res_hdr = calloc(1, RAW_BUFF_SZ);
