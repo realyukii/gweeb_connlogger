@@ -116,7 +116,7 @@ void unwatch_connection(struct http_ctx *ctx)
 {
 	free(ctx->raw_http_req_hdr);
 	free(ctx->raw_http_res_hdr);
-	memset(ctx, 0, sizeof(ctx));
+	memset(ctx, 0, sizeof(struct http_ctx));
 	ctx->sockfd = -1;
 }
 
@@ -205,6 +205,7 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 				char tmpbuf[strlen(ctx->ptr_raw_http_res_hdr)];
 				char *response_code;
 				strcpy(tmpbuf, ctx->ptr_raw_http_res_hdr);
+				fprintf(stderr, "%s\n", tmpbuf);
 				strtok(tmpbuf, " ");
 				response_code = strtok(NULL, " ");
 				strcpy(ctx->http_code_status, response_code);
