@@ -142,7 +142,7 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 		char *start = ctx->ptr_raw_http_req_hdr;
 		char *pos;
 
-		/* enqueue more than one times if the buffer have multiple request (HTTP pipeline) */
+		/* enqueue more than one times if the buffer have multiple request (either HTTP pipeline or HTTP keep-alive) */
 		/* when we have validated method and get crlf crlf, data ready to be parsed */
 		while ((pos = strstr(start, end_header)) != NULL) {
 			*pos = '\0';
@@ -165,7 +165,7 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 
 			enqueue(&ctx->http_req_queue, req);
 
-			memset(ctx->ptr_raw_http_req_hdr, 0, strlen(start));
+			memset(ctx->ptr_raw_http_req_hdr, 0, str_len);
 			start = pos + LINEBREAK_LEN;
 		}
 	}
