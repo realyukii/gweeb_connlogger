@@ -115,7 +115,6 @@ void unwatch_connection(struct http_ctx *ctx)
 
 void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 {
-
 		struct http_ctx *ctx = NULL;
 		for (size_t i = 0; i < POOL_SZ; i++) {
 			if (network_state[i].sockfd == sockfd) {
@@ -137,10 +136,9 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 			char *pos;
 
 			/* enqueue more than one times if the buffer have multiple request (HTTP pipeline) */
+			/* when we have validated method and get crlf crlf, data ready to be parsed */
 			while ((pos = strstr(start, end_header)) != NULL) {
 				*pos = '\0';
-				/* data ready to be parsed */
-				// fprintf(stderr, "%s\n", start);
 				int str_len = strlen(start);
 				char tmpstr[str_len];
 				strcpy(tmpstr, start);
@@ -162,9 +160,6 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 				
 				memset(ctx->raw_http_req_hdr, 0, strlen(start));
 				start = pos + LINEBREAK_LEN;
-				// TODO: advance the raw_http_req_hdr
-				// memmove(ctx->raw_http_req_hdr, ctx->raw_http_req_hdr + size_of_after_linebreak, length_of_remaining_unparsed_bytes);
-				// if (*start != '\0') memmove(ctx->raw_http_req_hdr, start, strlen(start));
 			}
 		}
 }
@@ -180,11 +175,9 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 	}
 
 	if (ctx != NULL) {
-		// if (strlen(ctx->raw_http_res_hdr) >= HTTP_VER_LEN && !validate_http_ver(ctx->raw_http_res_hdr))
-		// 	return;
-
 		/* handle partial recv by concat HTTP response header until \r\n\r\n */
 		strncat(ctx->raw_http_res_hdr, buf, buf_len);
+
 		char *possible_http = validate_http_ver(ctx->raw_http_res_hdr);
 		if (possible_http == NULL)
 			return;
@@ -223,10 +216,6 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 			char *next_ptr = eof_ptr+LINEBREAK_LEN;
 			ctx->raw_http_res_hdr = next_ptr;
-			// if (*next_ptr != '\0') {
-			// 	memmove(ctx->raw_http_res_hdr, next_ptr, strlen(next_ptr));
-			// }
-			// memset(ctx->raw_http_res_hdr, 0, RAW_BUFF_SZ);
 		}
 	}
 }
@@ -450,9 +439,8 @@ int close(int fd)
 			}
 		}
 
-		if (ctx != NULL) {
+		if (ctx != NULL)
 			unwatch_connection(ctx);
-		}
 	}
 
 	return ret;
