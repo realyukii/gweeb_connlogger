@@ -27,7 +27,7 @@ struct http_req_queue {
 	struct http_req array[REQ_QUEUE_SZ];
 };
 
-// 4 + 46 + 2 + (4 + 4 + 8*(8 + 1 + 8000+1 + 63+253+1)) + 8 + 8 + 4 + (4+4) byte alignment somewhere in the struct
+// 4 + 46 + 2 + (4 + 4 + 8*(8 + 1 + 8000+1 + 63+253+1)) + 8 + 8 + 8 + 8 + 4 + (4+4) byte alignment somewhere in the struct
 struct http_ctx {
 	int sockfd;
 	char remote_addr[INET6_ADDRSTRLEN];
@@ -35,6 +35,8 @@ struct http_ctx {
 	struct http_req_queue http_req_queue;
 	char *raw_http_req_hdr;
 	char *raw_http_res_hdr;
+	char *ptr_raw_http_req_hdr;
+	char *ptr_raw_http_res_hdr;
 	char http_code_status[3 + 1];
 };
 
@@ -107,10 +109,8 @@ char *validate_http_ver(const char raw_bytes[])
 void unwatch_connection(struct http_ctx *ctx)
 {
 	ctx->sockfd = -1;
-	// TODO: fix this, raw_http_* is no longer hold the original value returned by calloc
-	// so passing it as argument to free will cause error
-	// free(ctx->raw_http_req_hdr);
-	// free(ctx->raw_http_res_hdr);
+	free(ctx->raw_http_req_hdr);
+	free(ctx->raw_http_res_hdr);
 }
 
 void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
@@ -125,14 +125,14 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 
 	if (ctx != NULL) {
 		/* handle partial send by concat HTTP request header until \r\n\r\n */
-		strncat(ctx->raw_http_req_hdr, buf, buf_len);
+		strncat(ctx->ptr_raw_http_req_hdr, buf, buf_len);
 
 		char end_header[] = "\r\n\r\n";
-		char *possible_http = validate_method(ctx->raw_http_req_hdr);
+		char *possible_http = validate_method(ctx->ptr_raw_http_req_hdr);
 		if (possible_http == NULL)
 			return;
-		ctx->raw_http_req_hdr = possible_http;
-		char *start = ctx->raw_http_req_hdr;
+		ctx->ptr_raw_http_req_hdr = possible_http;
+		char *start = ctx->ptr_raw_http_req_hdr;
 		char *pos;
 
 		/* enqueue more than one times if the buffer have multiple request (HTTP pipeline) */
@@ -157,8 +157,8 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 			strcpy(req.http_host_hdr, http_host_hdr);
 
 			enqueue(&ctx->http_req_queue, req);
-			
-			memset(ctx->raw_http_req_hdr, 0, strlen(start));
+
+			memset(ctx->ptr_raw_http_req_hdr, 0, strlen(start));
 			start = pos + LINEBREAK_LEN;
 		}
 	}
@@ -176,16 +176,16 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 
 	if (ctx != NULL) {
 		/* handle partial recv by concat HTTP response header until \r\n\r\n */
-		strncat(ctx->raw_http_res_hdr, buf, buf_len);
+		strncat(ctx->ptr_raw_http_res_hdr, buf, buf_len);
 
-		char *possible_http = validate_http_ver(ctx->raw_http_res_hdr);
+		char *possible_http = validate_http_ver(ctx->ptr_raw_http_res_hdr);
 		if (possible_http == NULL)
 			return;
-		ctx->raw_http_res_hdr = possible_http;
+		ctx->ptr_raw_http_res_hdr = possible_http;
 
 		char end_header[] = "\r\n\r\n";
 		char end_of_header = 0;
-		char *eof_ptr = strstr(ctx->raw_http_res_hdr, end_header);
+		char *eof_ptr = strstr(ctx->ptr_raw_http_res_hdr, end_header);
 		if (eof_ptr != NULL)
 			end_of_header = 1;
 
@@ -194,9 +194,9 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 			*eof_ptr = '\0';
 			
 			struct http_req req = front(&ctx->http_req_queue);
-			char tmpbuf[strlen(ctx->raw_http_res_hdr)];
+			char tmpbuf[strlen(ctx->ptr_raw_http_res_hdr)];
 			char *response_code;
-			strcpy(tmpbuf, ctx->raw_http_res_hdr);
+			strcpy(tmpbuf, ctx->ptr_raw_http_res_hdr);
 			strtok(tmpbuf, " ");
 			response_code = strtok(NULL, " ");
 			strcpy(ctx->http_code_status, response_code);
@@ -215,7 +215,7 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 			init_log();
 			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
 			char *next_ptr = eof_ptr+LINEBREAK_LEN;
-			ctx->raw_http_res_hdr = next_ptr;
+			ctx->ptr_raw_http_res_hdr = next_ptr;
 		}
 	}
 }
@@ -246,6 +246,8 @@ int socket(int domain, int type, int protocol)
 				network_state[i].sockfd = ret;
 				network_state[i].raw_http_req_hdr = calloc(1, RAW_BUFF_SZ);
 				network_state[i].raw_http_res_hdr = calloc(1, RAW_BUFF_SZ);
+				network_state[i].ptr_raw_http_req_hdr = network_state[i].raw_http_req_hdr;
+				network_state[i].ptr_raw_http_res_hdr = network_state[i].raw_http_res_hdr;
 				break;
 			}
 		}
