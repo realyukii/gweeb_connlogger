@@ -11,7 +11,7 @@
 #define HTTP_VER_LEN 10
 #define RAW_BUFF_SZ 1024 * 1024
 #define POOL_SZ 100
-#define REQ_QUEUE_SZ 8
+#define REQ_QUEUE_SZ 32
 #define LINEBREAK_LEN 4
 static FILE *log_file = NULL;
 
@@ -46,16 +46,22 @@ static struct http_ctx network_state[POOL_SZ] = {
 
 void enqueue(struct http_req_queue *q, struct http_req http_req)
 {
-	// TODO: make sure the queue is not full
+	/* make sure the queue is not full */
+	if (q->tail == REQ_QUEUE_SZ)
+		return;
+
 	q->array[q->tail] = http_req;
 	q->tail++;
 }
 
 /* return front item and dequeue */
-struct http_req front(struct http_req_queue *q)
+struct http_req *front(struct http_req_queue *q)
 {
-	// TODO: make sure the queue is not empty
-	struct http_req req = q->array[q->head];
+	/* make sure the queue is not empty */
+	if (q->head == q->tail)
+		return NULL;
+
+	struct http_req *req = &q->array[q->head];
 
 	q->head++;
 	return req;
@@ -193,29 +199,31 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 		if (end_of_header == 1) {
 			*eof_ptr = '\0';
 			
-			struct http_req req = front(&ctx->http_req_queue);
-			char tmpbuf[strlen(ctx->ptr_raw_http_res_hdr)];
-			char *response_code;
-			strcpy(tmpbuf, ctx->ptr_raw_http_res_hdr);
-			strtok(tmpbuf, " ");
-			response_code = strtok(NULL, " ");
-			strcpy(ctx->http_code_status, response_code);
+			struct http_req *req = front(&ctx->http_req_queue);
+			if (req != NULL) {
+				char tmpbuf[strlen(ctx->ptr_raw_http_res_hdr)];
+				char *response_code;
+				strcpy(tmpbuf, ctx->ptr_raw_http_res_hdr);
+				strtok(tmpbuf, " ");
+				response_code = strtok(NULL, " ");
+				strcpy(ctx->http_code_status, response_code);
 
-			time_t rawtime;
-			struct tm *timeinfo;
-			time(&rawtime);
-			timeinfo = localtime(&rawtime);
-			char formatted_time[32];
-			strcpy(formatted_time, asctime(timeinfo));
-			formatted_time[strlen(formatted_time) - 1] = '\0';
+				time_t rawtime;
+				struct tm *timeinfo;
+				time(&rawtime);
+				timeinfo = localtime(&rawtime);
+				char formatted_time[32];
+				strcpy(formatted_time, asctime(timeinfo));
+				formatted_time[strlen(formatted_time) - 1] = '\0';
 
-			char formatted_log[1024] = {0};
-			sprintf(formatted_log, "[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n", formatted_time, ctx->remote_addr, ctx->remote_port, req.http_method, req.http_path, req.http_host_hdr, ctx->http_code_status);
+				char formatted_log[1024] = {0};
+				sprintf(formatted_log, "[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n", formatted_time, ctx->remote_addr, ctx->remote_port, req->http_method, req->http_path, req->http_host_hdr, ctx->http_code_status);
 
-			init_log();
-			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
-			char *next_ptr = eof_ptr+LINEBREAK_LEN;
-			ctx->ptr_raw_http_res_hdr = next_ptr;
+				init_log();
+				fwrite(formatted_log, strlen(formatted_log), 1, log_file);
+				char *next_ptr = eof_ptr+LINEBREAK_LEN;
+				ctx->ptr_raw_http_res_hdr = next_ptr;
+			}
 		}
 	}
 }

@@ -36,7 +36,7 @@ lalu gantikan tampungannya dengan data yang baru
 
 skenario tertentu yang saat ini dapat ditangani:
 - fitur HTTP pipeline
-- re-use existing socket
+- re-use existing socket, HTTP keep-alive (?)
 - short recv dan partial send
 - transfer encoding chunked
 
@@ -79,7 +79,15 @@ calling convention untuk function user-level application dan linux kernel system
 queue abstract data type is used to support re-use existing socket for multiple HTTP request
 ---
 
-to support HTTP pipeline, I need to instruct the program to looking for possible additional HTTP request by scan the entire recvfrom/read buffer
+to support HTTP pipeline, I need to instruct the program to looking for possible additional HTTP request by scan the entire sendto/write buffer
+---
+
+from MDN page https://developer.mozilla.org/en-US/docs/Glossary/Head_of_line_blocking:
+> In HTTP/1.1, HOL blocking can occur when a client sends multiple requests to a server without waiting for the responses. The server processes the requests in order, but if the response to the first request is delayed, the responses to subsequent requests are also delayed. HTTP/2 addresses this issue through request multiplexing, eliminating HOL blocking in the application layer, but it still exists at the transport (TCP) layer.
+
+HTTP pipeline feature is improved in HTTP/2 (?)
+
+see also: https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Connection_management_in_HTTP_1.x
 ### Weird stuff
 ```
 [reyuki@zero gweeb_connlogger]$  strace -e trace=connect /usr/bin/env LD_PRELOAD=/home/reyuki/software/my-code/gnuweeb/gweeb_connlogger/build/gwconnlogger.so curl -s http://google.com/ >/dev/null
