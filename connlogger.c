@@ -114,9 +114,13 @@ char *validate_http_ver(const char raw_bytes[])
 
 void unwatch_connection(struct http_ctx *ctx)
 {
-	// free(ctx->raw_http_req_hdr);
+	/*
+	* weird, free cause segfault on google chrome browser
+	* even though it's already guaranteed to be malloc'ed as the ctx is only available through socket() call which call calloc
+	*/
 	// free(ctx->raw_http_res_hdr);
-	// memset(ctx, 0, sizeof(struct http_ctx));
+	// free(ctx->raw_http_req_hdr);
+	memset(ctx, 0, sizeof(struct http_ctx));
 	ctx->sockfd = -1;
 }
 
