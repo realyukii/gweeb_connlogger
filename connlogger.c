@@ -8,6 +8,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#define HTTP_VER_LEN 10
 #define RAW_BUFF_SZ 1024 * 1024
 #define POOL_SZ 100
 #define REQ_QUEUE_SZ 8
@@ -26,6 +27,7 @@ struct http_req_queue {
 	struct http_req array[REQ_QUEUE_SZ];
 };
 
+// 4 + 46 + 2 + (4 + 4 + 8*(8 + 1 + 8000+1 + 63+253+1)) + 8 + 8 + 4 + (4+4) byte alignment somewhere in the struct
 struct http_ctx {
 	int sockfd;
 	char remote_addr[INET6_ADDRSTRLEN];
@@ -71,60 +73,44 @@ static void init_log(void)
 	setvbuf(log_file, NULL, _IOLBF, 0);
 }
 
-char validate_method(const char method[])
+char *validate_method(const char raw_bytes[])
 {
 	const char *http_methods[] = {"GET", "POST", "HEAD", "PATCH", "PUT", "DELETE", "OPTIONS", "CONNECT", "TRACE", NULL};
-	char valid = 0;
 	const char **ptr = http_methods;
+	char *method_ptr = NULL;
 	while (*ptr) {
-		const char *http_method = *ptr;
-		const char *first_bytes = method;
-		while (*http_method) {
-			if (*first_bytes != *http_method)
-				valid = 0;
-			else
-				valid = 1;
-			first_bytes++;
-			http_method++;
-		}
-		if (valid)
+		method_ptr = strstr(raw_bytes, *ptr);
+		if (method_ptr != NULL)
 			break;
 		ptr++;
 	}
 
-	return valid;
+	return method_ptr;
 }
 
-char validate_http_ver(const char bytes[])
+char *validate_http_ver(const char raw_bytes[])
 {
 	/* for now only support logging for HTTP/1.1 */
-	const char *http_ver_list[] = {"HTTP/1.1", NULL};
-	char valid = 0;
+	const char *http_ver_list[] = {"HTTP/1.1 ", NULL};
 	const char **ptr = http_ver_list;
+	char *http_ver_ptr = NULL;
 	while (*ptr) {
-		const char *http_ver = *ptr;
-		const char *first_bytes = bytes;
-		while (*http_ver) {
-			if (*first_bytes != *http_ver)
-				valid = 0;
-			else
-				valid = 1;
-			first_bytes++;
-			http_ver++;
-		}
-		if (valid)
+		http_ver_ptr = strstr(raw_bytes, *ptr);
+		if (http_ver_ptr != NULL)
 			break;
 		ptr++;
 	}
 
-	return valid;
+	return http_ver_ptr;
 }
 
 void unwatch_connection(struct http_ctx *ctx)
 {
 	ctx->sockfd = -1;
-	free(ctx->raw_http_req_hdr);
-	free(ctx->raw_http_res_hdr);
+	// TODO: fix this, raw_http_* is no longer hold the original value returned by calloc
+	// so passing it as argument to free will cause error
+	// free(ctx->raw_http_req_hdr);
+	// free(ctx->raw_http_res_hdr);
 }
 
 void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
@@ -143,6 +129,10 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 			strncat(ctx->raw_http_req_hdr, buf, buf_len);
 
 			char end_header[] = "\r\n\r\n";
+			char *possible_http = validate_method(ctx->raw_http_req_hdr);
+			if (possible_http == NULL)
+				return;
+			ctx->raw_http_req_hdr = possible_http;
 			char *start = ctx->raw_http_req_hdr;
 			char *pos;
 
@@ -150,25 +140,31 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 			while ((pos = strstr(start, end_header)) != NULL) {
 				*pos = '\0';
 				/* data ready to be parsed */
-				if (validate_method(start) == 1) {
-					int str_len = strlen(start);
-					char tmpstr[str_len];
-					strcpy(tmpstr, start);
-					const char keyword[] = "Host:";
-					const char *method = strtok(tmpstr, " ");
-					const char *path = strtok(NULL, " ");
+				// fprintf(stderr, "%s\n", start);
+				int str_len = strlen(start);
+				char tmpstr[str_len];
+				strcpy(tmpstr, start);
+				const char keyword[] = "Host:";
+				const char *method = strtok(tmpstr, " ");
+				const char *path = strtok(NULL, " ");
 
-					char *http_host_hdr = strcasestr(start, keyword);
-					strtok(http_host_hdr, "\r\n");
+				char anothertmpstr[str_len];
+				strcpy(anothertmpstr, start);
+				char *http_host_hdr = strcasestr(anothertmpstr, keyword);
+				strtok(http_host_hdr, "\r\n");
 
-					struct http_req req;
-					strcpy(req.http_method, method);
-					strcpy(req.http_path, path);
-					strcpy(req.http_host_hdr, http_host_hdr);
+				struct http_req req;
+				strcpy(req.http_method, method);
+				strcpy(req.http_path, path);
+				strcpy(req.http_host_hdr, http_host_hdr);
 
-					enqueue(&ctx->http_req_queue, req);
-				}
+				enqueue(&ctx->http_req_queue, req);
+				
+				memset(ctx->raw_http_req_hdr, 0, strlen(start));
 				start = pos + LINEBREAK_LEN;
+				// TODO: advance the raw_http_req_hdr
+				// memmove(ctx->raw_http_req_hdr, ctx->raw_http_req_hdr + size_of_after_linebreak, length_of_remaining_unparsed_bytes);
+				// if (*start != '\0') memmove(ctx->raw_http_req_hdr, start, strlen(start));
 			}
 		}
 }
@@ -184,19 +180,26 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 	}
 
 	if (ctx != NULL) {
-		if (strlen(ctx->raw_http_res_hdr) >= 9 && !validate_http_ver(ctx->raw_http_res_hdr))
-			return;
+		// if (strlen(ctx->raw_http_res_hdr) >= HTTP_VER_LEN && !validate_http_ver(ctx->raw_http_res_hdr))
+		// 	return;
 
 		/* handle partial recv by concat HTTP response header until \r\n\r\n */
 		strncat(ctx->raw_http_res_hdr, buf, buf_len);
+		char *possible_http = validate_http_ver(ctx->raw_http_res_hdr);
+		if (possible_http == NULL)
+			return;
+		ctx->raw_http_res_hdr = possible_http;
 
 		char end_header[] = "\r\n\r\n";
 		char end_of_header = 0;
-		if (strstr(ctx->raw_http_res_hdr, end_header) != NULL)
+		char *eof_ptr = strstr(ctx->raw_http_res_hdr, end_header);
+		if (eof_ptr != NULL)
 			end_of_header = 1;
 
 		/* data ready to be parsed */
 		if (end_of_header == 1) {
+			*eof_ptr = '\0';
+			
 			struct http_req req = front(&ctx->http_req_queue);
 			char tmpbuf[strlen(ctx->raw_http_res_hdr)];
 			char *response_code;
@@ -218,8 +221,12 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 
 			init_log();
 			fwrite(formatted_log, strlen(formatted_log), 1, log_file);
-
-			memset(ctx->raw_http_res_hdr, 0, RAW_BUFF_SZ);
+			char *next_ptr = eof_ptr+LINEBREAK_LEN;
+			ctx->raw_http_res_hdr = next_ptr;
+			// if (*next_ptr != '\0') {
+			// 	memmove(ctx->raw_http_res_hdr, next_ptr, strlen(next_ptr));
+			// }
+			// memset(ctx->raw_http_res_hdr, 0, RAW_BUFF_SZ);
 		}
 	}
 }
