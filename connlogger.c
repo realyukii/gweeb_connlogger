@@ -114,8 +114,8 @@ char *validate_http_ver(const char raw_bytes[])
 
 void unwatch_connection(struct http_ctx *ctx)
 {
-	free(ctx->raw_http_req_hdr);
-	free(ctx->raw_http_res_hdr);
+	// free(ctx->raw_http_req_hdr);
+	// free(ctx->raw_http_res_hdr);
 	// memset(ctx, 0, sizeof(struct http_ctx));
 	ctx->sockfd = -1;
 }
