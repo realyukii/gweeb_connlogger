@@ -152,15 +152,17 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 			*pos = '\0';
 			int str_len = strlen(start);
 			char tmpstr[str_len];
+			char *saveptr_tmpstr = NULL;
 			strcpy(tmpstr, start);
 			const char keyword[] = "Host:";
-			const char *method = strtok(tmpstr, " ");
-			const char *path = strtok(NULL, " ");
+			const char *method = strtok_r(tmpstr, " ", &saveptr_tmpstr);
+			const char *path = strtok_r(NULL, " ", &saveptr_tmpstr);
 
 			char anothertmpstr[str_len];
+			char *svptr = NULL;
 			strcpy(anothertmpstr, start);
 			char *http_host_hdr = strcasestr(anothertmpstr, keyword);
-			strtok(http_host_hdr, "\r\n");
+			strtok_r(http_host_hdr, "\r\n", &svptr);
 
 			struct http_req req;
 			strcpy(req.http_method, method);
@@ -207,10 +209,11 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 			struct http_req *req = front(&ctx->http_req_queue);
 			if (req != NULL) {
 				char tmpbuf[strlen(ctx->ptr_raw_http_res_hdr)];
+				char *svptr = NULL;
 				char *response_code;
 				strcpy(tmpbuf, ctx->ptr_raw_http_res_hdr);
-				strtok(tmpbuf, " ");
-				response_code = strtok(NULL, " ");
+				strtok_r(tmpbuf, " ", &svptr);
+				response_code = strtok_r(NULL, " ", &svptr);
 				strcpy(ctx->http_code_status, response_code);
 
 				time_t rawtime;
@@ -253,9 +256,7 @@ int socket(int domain, int type, int protocol)
 		*/
 		errno = -ret;
 		ret = -1;
-	} else {
-		if (domain == AF_INET || domain == AF_INET6)
-			return
+	} else if (domain == AF_INET || domain == AF_INET6) {
 		for (size_t i = 0; i < POOL_SZ; i++) {
 			if (network_state[i].sockfd == -1) {
 				network_state[i].sockfd = ret;
