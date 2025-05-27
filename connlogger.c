@@ -116,7 +116,7 @@ void unwatch_connection(struct http_ctx *ctx)
 {
 	free(ctx->raw_http_req_hdr);
 	free(ctx->raw_http_res_hdr);
-	memset(ctx, 0, sizeof(struct http_ctx));
+	// memset(ctx, 0, sizeof(struct http_ctx));
 	ctx->sockfd = -1;
 }
 
