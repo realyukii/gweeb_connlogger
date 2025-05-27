@@ -1,4 +1,4 @@
-analyze compiled handle_parsing_localbuf function, the library is compiled with: `gcc -shared -Os -g3 -fpic -fPIC`
+analyze disassembled handle_parsing_localbuf function, the library is compiled with: `gcc -shared -Os -g3 -fpic -fPIC`
 
 prologue
 ```
@@ -52,8 +52,8 @@ compare first parameter (sockfd) with network_state[i]
 - <+59>: moving ctx->raw_http_req_hdr to first argument of strncat by using r12 as index of array: r13[r12].raw_http_req_hdr
 - <+72>: initialize start with ctx->raw_http_req_hdr by move blablabla to rbx
 - <+80>: initialize variable end_header with \r\n\r\n
-- <+87>: don't know what it is
-- <+92>: don't know what it is
+- <+87>: move network_state[i].http_req_queue to r13
+- <+92>: don't know what it for
 
 ```
    0x00007ffff7801476 <+101>:   inc    %rax
@@ -68,7 +68,7 @@ compare first parameter (sockfd) with network_state[i]
    - jne: if i less than 100 holds true
    - jmp: loop over, time to exit from this function and return to the caller address
 
-block inside while loop
+block code inside while loop
 ```
    0x00007ffff780148b <+122>:   movb   $0x0,(%r12)
    0x00007ffff7801490 <+127>:   mov    %rbx,%rdi
@@ -121,6 +121,10 @@ block inside while loop
    0x00007ffff780156a <+345>:   mov    -0x20d8(%rbp),%rsp
    0x00007ffff7801571 <+352>:   lea    0x4(%r12),%rbx
 ```
+- <+122>: *pos = '\0'
+- <+135> and <+137>: check if validate_method return 1
+- ...
+- <+352>: set start to start+4 skipping crlf crlf
 
 ```
    0x00007ffff7801576 <+357>:   lea    -0x43(%rbp),%rsi
@@ -133,7 +137,7 @@ block inside while loop
 - pass end_header as second argument
 - pass start as first argument
 - move return value of strstr to r12
-- check if return value is null and if not null loop again
+- while loop: check if return value is null and if not null loop again
 
 stack overflow checking
 ```
