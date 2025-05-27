@@ -115,53 +115,53 @@ void unwatch_connection(struct http_ctx *ctx)
 
 void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 {
-		struct http_ctx *ctx = NULL;
-		for (size_t i = 0; i < POOL_SZ; i++) {
-			if (network_state[i].sockfd == sockfd) {
-				ctx = &network_state[i];
-				break;
-			}
+	struct http_ctx *ctx = NULL;
+	for (size_t i = 0; i < POOL_SZ; i++) {
+		if (network_state[i].sockfd == sockfd) {
+			ctx = &network_state[i];
+			break;
 		}
+	}
 
-		if (ctx != NULL) {
-			/* handle partial send by concat HTTP request header until \r\n\r\n */
-			strncat(ctx->raw_http_req_hdr, buf, buf_len);
+	if (ctx != NULL) {
+		/* handle partial send by concat HTTP request header until \r\n\r\n */
+		strncat(ctx->raw_http_req_hdr, buf, buf_len);
 
-			char end_header[] = "\r\n\r\n";
-			char *possible_http = validate_method(ctx->raw_http_req_hdr);
-			if (possible_http == NULL)
-				return;
-			ctx->raw_http_req_hdr = possible_http;
-			char *start = ctx->raw_http_req_hdr;
-			char *pos;
+		char end_header[] = "\r\n\r\n";
+		char *possible_http = validate_method(ctx->raw_http_req_hdr);
+		if (possible_http == NULL)
+			return;
+		ctx->raw_http_req_hdr = possible_http;
+		char *start = ctx->raw_http_req_hdr;
+		char *pos;
 
-			/* enqueue more than one times if the buffer have multiple request (HTTP pipeline) */
-			/* when we have validated method and get crlf crlf, data ready to be parsed */
-			while ((pos = strstr(start, end_header)) != NULL) {
-				*pos = '\0';
-				int str_len = strlen(start);
-				char tmpstr[str_len];
-				strcpy(tmpstr, start);
-				const char keyword[] = "Host:";
-				const char *method = strtok(tmpstr, " ");
-				const char *path = strtok(NULL, " ");
+		/* enqueue more than one times if the buffer have multiple request (HTTP pipeline) */
+		/* when we have validated method and get crlf crlf, data ready to be parsed */
+		while ((pos = strstr(start, end_header)) != NULL) {
+			*pos = '\0';
+			int str_len = strlen(start);
+			char tmpstr[str_len];
+			strcpy(tmpstr, start);
+			const char keyword[] = "Host:";
+			const char *method = strtok(tmpstr, " ");
+			const char *path = strtok(NULL, " ");
 
-				char anothertmpstr[str_len];
-				strcpy(anothertmpstr, start);
-				char *http_host_hdr = strcasestr(anothertmpstr, keyword);
-				strtok(http_host_hdr, "\r\n");
+			char anothertmpstr[str_len];
+			strcpy(anothertmpstr, start);
+			char *http_host_hdr = strcasestr(anothertmpstr, keyword);
+			strtok(http_host_hdr, "\r\n");
 
-				struct http_req req;
-				strcpy(req.http_method, method);
-				strcpy(req.http_path, path);
-				strcpy(req.http_host_hdr, http_host_hdr);
+			struct http_req req;
+			strcpy(req.http_method, method);
+			strcpy(req.http_path, path);
+			strcpy(req.http_host_hdr, http_host_hdr);
 
-				enqueue(&ctx->http_req_queue, req);
-				
-				memset(ctx->raw_http_req_hdr, 0, strlen(start));
-				start = pos + LINEBREAK_LEN;
-			}
+			enqueue(&ctx->http_req_queue, req);
+			
+			memset(ctx->raw_http_req_hdr, 0, strlen(start));
+			start = pos + LINEBREAK_LEN;
 		}
+	}
 }
 
 void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
