@@ -6,6 +6,8 @@
 - [ChatGPT](https://chatgpt.com/share/682c9388-e6dc-8002-a209-fe11def5a65e) - debugging a shared library
 - [stackoverflow](https://stackoverflow.com/questions/15997759/constraining-r10-register-in-gcc-inline-x86-64-assembly) - r10 register is not available in constraint letter
 - [telegram](https://t.me/GNUWeeb/1169097) - review and suggestion by sir Ammar
+- [gist github](https://gist.github.com/htp/fbce19069187ec1cc486b594104f01d0) - test websocket connection with curl
+
 ### glibc
 list of used glibc's function:
 - `sprintf`
