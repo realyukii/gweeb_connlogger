@@ -143,112 +143,117 @@ void unwatch_connection(struct http_ctx *ctx)
 void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 {
 	struct http_ctx *ctx = find_ctx(sockfd);
-	if (ctx != NULL) {
-		/*
-		* handle partial send by concat HTTP request header
-		* until \r\n\r\n
-		*/
-		strncat(ctx->ptr_raw_http_req_hdr, buf, buf_len);
+	if (ctx == NULL)
+		return;
 
-		char end_header[] = "\r\n\r\n";
-		char *possible_http = validate_method(ctx->ptr_raw_http_req_hdr);
-		if (possible_http == NULL)
-			return;
-		ctx->ptr_raw_http_req_hdr = possible_http;
-		char *start = ctx->ptr_raw_http_req_hdr;
-		char *pos;
+	/*
+	* handle partial send by concat HTTP request header
+	* until \r\n\r\n
+	*/
+	strncat(ctx->ptr_raw_http_req_hdr, buf, buf_len);
 
-		/*
-		* enqueue more than one times if the buffer have
-		* multiple request (either HTTP pipeline or HTTP keep-alive).
-		*
-		* when we have validated method and get crlf crlf,
-		* data ready to be parsed.
-		*/
-		while ((pos = strstr(start, end_header)) != NULL) {
-			*pos = '\0';
-			int str_len = strlen(start);
-			char tmpstr[str_len];
-			char *saveptr_tmpstr = NULL;
-			strcpy(tmpstr, start);
-			const char keyword[] = "Host:";
-			const char *method = strtok_r(tmpstr, " ", &saveptr_tmpstr);
-			const char *path = strtok_r(NULL, " ", &saveptr_tmpstr);
+	char *possible_http = validate_method(ctx->ptr_raw_http_req_hdr);
+	if (possible_http == NULL)
+		return;
 
-			char anothertmpstr[str_len];
-			char *svptr = NULL;
-			strcpy(anothertmpstr, start);
-			char *http_host_hdr = strcasestr(anothertmpstr, keyword);
-			strtok_r(http_host_hdr, "\r\n", &svptr);
+	ctx->ptr_raw_http_req_hdr = possible_http;
 
-			struct http_req req;
-			strcpy(req.http_method, method);
-			strcpy(req.http_path, path);
-			strcpy(req.http_host_hdr, http_host_hdr);
+	char end_header[] = "\r\n\r\n";
+	char *start = ctx->ptr_raw_http_req_hdr;
+	char *pos;
 
-			enqueue(&ctx->http_req_queue, req);
+	/*
+	* enqueue more than one times if the buffer have
+	* multiple request (either HTTP pipeline or HTTP keep-alive).
+	*
+	* when we have validated method and get crlf crlf,
+	* data ready to be parsed.
+	*/
+	while ((pos = strstr(start, end_header)) != NULL) {
+		*pos = '\0';
+		int str_len = strlen(start);
+		char tmpstr[str_len];
+		char *saveptr_tmpstr = NULL;
+		strcpy(tmpstr, start);
+		const char keyword[] = "Host:";
+		const char *method = strtok_r(tmpstr, " ", &saveptr_tmpstr);
+		const char *path = strtok_r(NULL, " ", &saveptr_tmpstr);
 
-			memset(ctx->ptr_raw_http_req_hdr, 0, str_len);
-			start = pos + LINEBREAK_LEN;
-		}
+		char anothertmpstr[str_len];
+		char *svptr = NULL;
+		strcpy(anothertmpstr, start);
+		char *http_host_hdr = strcasestr(anothertmpstr, keyword);
+		strtok_r(http_host_hdr, "\r\n", &svptr);
+
+		struct http_req req;
+		strcpy(req.http_method, method);
+		strcpy(req.http_path, path);
+		strcpy(req.http_host_hdr, http_host_hdr);
+
+		enqueue(&ctx->http_req_queue, req);
+
+		memset(ctx->ptr_raw_http_req_hdr, 0, str_len);
+		start = pos + LINEBREAK_LEN;
 	}
 }
 
 void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 {
 	struct http_ctx *ctx = find_ctx(sockfd);
+	if (ctx == NULL)
+		return;
 
-	if (ctx != NULL) {
-		/*
-		* handle partial recv by concat HTTP response header
-		* until \r\n\r\n
-		*/
-		strncat(ctx->ptr_raw_http_res_hdr, buf, buf_len);
+	/*
+	* handle partial recv by concat HTTP response header
+	* until \r\n\r\n
+	*/
+	strncat(ctx->ptr_raw_http_res_hdr, buf, buf_len);
 
-		char *possible_http = validate_http_ver(ctx->ptr_raw_http_res_hdr);
-		if (possible_http == NULL)
-			return;
-		ctx->ptr_raw_http_res_hdr = possible_http;
+	char *possible_http = validate_http_ver(ctx->ptr_raw_http_res_hdr);
+	if (possible_http == NULL)
+		return;
 
-		char end_header[] = "\r\n\r\n";
-		char end_of_header = 0;
-		char *eof_ptr = strstr(ctx->ptr_raw_http_res_hdr, end_header);
-		if (eof_ptr != NULL)
-			end_of_header = 1;
+	ctx->ptr_raw_http_res_hdr = possible_http;
 
-		/* data ready to be parsed */
-		if (end_of_header == 1) {
-			*eof_ptr = '\0';
-			
-			struct http_req *req = front(&ctx->http_req_queue);
-			if (req != NULL) {
-				char tmpbuf[strlen(ctx->ptr_raw_http_res_hdr)];
-				char *svptr = NULL;
-				char *response_code;
-				strcpy(tmpbuf, ctx->ptr_raw_http_res_hdr);
-				strtok_r(tmpbuf, " ", &svptr);
-				response_code = strtok_r(NULL, " ", &svptr);
-				strcpy(ctx->http_code_status, response_code);
+	char end_header[] = "\r\n\r\n";
+	char *eof_ptr = strstr(ctx->ptr_raw_http_res_hdr, end_header);
+	if (eof_ptr == NULL)
+		return;
 
-				time_t rawtime;
-				struct tm *timeinfo;
-				time(&rawtime);
-				timeinfo = localtime(&rawtime);
-				char formatted_time[32];
-				strcpy(formatted_time, asctime(timeinfo));
-				formatted_time[strlen(formatted_time) - 1] = '\0';
+	/* data ready to be parsed */
+	*eof_ptr = '\0';
+	
+	struct http_req *req = front(&ctx->http_req_queue);
+	if (req == NULL)
+		return;
 
-				init_log();
-				fprintf(
-					log_file,
-					"[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n",
-					formatted_time, ctx->remote_addr, ctx->remote_port, req->http_method, req->http_path, req->http_host_hdr, ctx->http_code_status
-				);
-				char *next_ptr = eof_ptr+LINEBREAK_LEN;
-				ctx->ptr_raw_http_res_hdr = next_ptr;
-			}
-		}
-	}
+	char tmpbuf[strlen(ctx->ptr_raw_http_res_hdr)];
+	char *svptr = NULL;
+	char *response_code;
+	strcpy(tmpbuf, ctx->ptr_raw_http_res_hdr);
+	strtok_r(tmpbuf, " ", &svptr);
+	response_code = strtok_r(NULL, " ", &svptr);
+	strcpy(ctx->http_code_status, response_code);
+
+	time_t rawtime;
+	struct tm *timeinfo;
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+	char formatted_time[32];
+	strcpy(formatted_time, asctime(timeinfo));
+	formatted_time[strlen(formatted_time) - 1] = '\0';
+
+	init_log();
+	fprintf(
+		log_file,
+		"[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n",
+		formatted_time,
+		ctx->remote_addr, ctx->remote_port,
+		req->http_method, req->http_path,
+		req->http_host_hdr, ctx->http_code_status
+	);
+	char *next_ptr = eof_ptr+LINEBREAK_LEN;
+	ctx->ptr_raw_http_res_hdr = next_ptr;
 }
 
 int socket(int domain, int type, int protocol)
@@ -267,17 +272,20 @@ int socket(int domain, int type, int protocol)
 	if (ret < 0) {
 		errno = -ret;
 		ret = -1;
-	} else if (domain == AF_INET || domain == AF_INET6) {
-		for (size_t i = 0; i < POOL_SZ; i++) {
-			if (network_state[i].sockfd == -1) {
-				network_state[i].sockfd = ret;
-				network_state[i].raw_http_req_hdr = calloc(1, RAW_BUFF_SZ);
-				network_state[i].raw_http_res_hdr = calloc(1, RAW_BUFF_SZ);
-				network_state[i].ptr_raw_http_req_hdr = network_state[i].raw_http_req_hdr;
-				network_state[i].ptr_raw_http_res_hdr = network_state[i].raw_http_res_hdr;
-				break;
-			}
-		}
+	} else if (domain != AF_INET || domain != AF_INET6) {
+		return ret;
+	}
+
+	for (size_t i = 0; i < POOL_SZ; i++) {
+		if (network_state[i].sockfd != -1)
+			continue;
+
+		network_state[i].sockfd = ret;
+		network_state[i].raw_http_req_hdr = calloc(1, RAW_BUFF_SZ);
+		network_state[i].raw_http_res_hdr = calloc(1, RAW_BUFF_SZ);
+		network_state[i].ptr_raw_http_req_hdr = network_state[i].raw_http_req_hdr;
+		network_state[i].ptr_raw_http_res_hdr = network_state[i].raw_http_res_hdr;
+		break;
 	}
 
 	return ret;
@@ -296,29 +304,31 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		:"memory", "rcx", "r11", "cc"
 	);
 
-	if (addr->sa_family == AF_INET || addr->sa_family == AF_INET6) {
-		struct http_ctx *ctx = find_ctx(sockfd);
-
-		if (ctx != NULL) {
-			const struct sockaddr_in *in = (void *)addr;
-			const struct sockaddr_in6 *in6 = (void *)addr;
-
-			switch (addr->sa_family) {
-			case AF_INET:
-				inet_ntop(AF_INET, &in->sin_addr, ctx->remote_addr, INET_ADDRSTRLEN);
-				ctx->remote_port = ntohs(in->sin_port);
-				break;
-			case AF_INET6:
-				inet_ntop(AF_INET6, &in6->sin6_addr, ctx->remote_addr, INET6_ADDRSTRLEN);
-				ctx->remote_port = ntohs(in6->sin6_port);
-				break;
-			}
-		}
-	}
-
 	if (ret < 0) {
 		errno = -ret;
 		ret = -1;
+		return ret;
+	}
+
+	if (addr->sa_family != AF_INET || addr->sa_family != AF_INET6)
+		return ret;
+
+	struct http_ctx *ctx = find_ctx(sockfd);
+	if (ctx == NULL)
+		return ret;
+
+	const struct sockaddr_in *in = (void *)addr;
+	const struct sockaddr_in6 *in6 = (void *)addr;
+
+	switch (addr->sa_family) {
+	case AF_INET:
+		inet_ntop(AF_INET, &in->sin_addr, ctx->remote_addr, INET_ADDRSTRLEN);
+		ctx->remote_port = ntohs(in->sin_port);
+		break;
+	case AF_INET6:
+		inet_ntop(AF_INET6, &in6->sin6_addr, ctx->remote_addr, INET6_ADDRSTRLEN);
+		ctx->remote_port = ntohs(in6->sin6_port);
+		break;
 	}
 
 	return ret;
@@ -332,6 +342,7 @@ ssize_t sendto(
 	register const struct sockaddr *_dest_addr asm("r8") = dst_addr;
 	register socklen_t _dest_len asm("r9") = addrlen;
 	int ret;
+
 	asm volatile (
 		"syscall"
 		: "=a" (ret)
@@ -363,6 +374,7 @@ ssize_t recvfrom(
 	register struct sockaddr *_dest_addr asm("r8") = src_addr;
 	register socklen_t *_dest_len asm("r9") = addrlen;
 	int ret;
+
 	asm volatile (
 		"syscall"
 		: "=a" (ret)
@@ -389,6 +401,7 @@ ssize_t recvfrom(
 ssize_t read(int fd, void *buf, size_t count)
 {
 	int ret;
+
 	asm volatile (
 		"syscall"
 		: "=a" (ret)
@@ -412,6 +425,7 @@ ssize_t read(int fd, void *buf, size_t count)
 ssize_t write(int fd, const void *buf, size_t count)
 {
 	int ret;
+
 	asm volatile (
 		"syscall"
 		: "=a" (ret)
@@ -445,6 +459,7 @@ ssize_t recv(int sockfd, void *buf, size_t size, int flags)
 int close(int fd)
 {
 	int ret;
+
 	asm volatile (
 		"syscall"
 		: "=a" (ret)
