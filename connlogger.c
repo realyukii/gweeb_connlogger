@@ -295,8 +295,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		 "d" (addrlen)			/* %rdx */
 		:"memory", "rcx", "r11", "cc"
 	);
-	
-	if (addr->sa_family == AF_INET || addr->sa_family == AF_INET6) {		
+
+	if (addr->sa_family == AF_INET || addr->sa_family == AF_INET6) {
 		struct http_ctx *ctx = NULL;
 		for (size_t i = 0; i < POOL_SZ; i++) {
 			if (network_state[i].sockfd == sockfd) {
@@ -306,14 +306,17 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		}
 
 		if (ctx != NULL) {
+			const struct sockaddr_in *in = (void *)addr;
+			const struct sockaddr_in6 *in6 = (void *)addr;
+
 			switch (addr->sa_family) {
 			case AF_INET:
-					inet_ntop(AF_INET, &(((struct sockaddr_in *)addr)->sin_addr), ctx->remote_addr, INET_ADDRSTRLEN);
-					ctx->remote_port = ntohs(((struct sockaddr_in *)addr)->sin_port);
+				inet_ntop(AF_INET, &in->sin_addr, ctx->remote_addr, INET_ADDRSTRLEN);
+				ctx->remote_port = ntohs(in->sin_port);
 				break;
 			case AF_INET6:
-					inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)addr)->sin6_addr), ctx->remote_addr, INET6_ADDRSTRLEN);
-					ctx->remote_port = ntohs(((struct sockaddr_in6 *)addr)->sin6_port);
+				inet_ntop(AF_INET6, &in6->sin6_addr, ctx->remote_addr, INET6_ADDRSTRLEN);
+				ctx->remote_port = ntohs(in6->sin6_port);
 				break;
 			}
 		}
