@@ -284,6 +284,14 @@ int socket(int domain, int type, int protocol)
 		ctx->sockfd = ret;
 		ctx->raw_http_req_hdr = calloc(1, RAW_BUFF_SZ);
 		ctx->raw_http_res_hdr = calloc(1, RAW_BUFF_SZ);
+		/*
+		* if the calloc fail, something went wrong 
+		* undo the action to track this fd
+		*/
+		if (ctx->raw_http_req_hdr == NULL || ctx->raw_http_res_hdr == NULL) {
+			ctx->sockfd = -1;
+			return ret;
+		}
 		ctx->ptr_raw_http_req_hdr = ctx->raw_http_req_hdr;
 		ctx->ptr_raw_http_res_hdr = ctx->raw_http_res_hdr;
 		break;
