@@ -141,6 +141,27 @@ static void unwatch_connection(struct http_ctx *ctx)
 	ctx->sockfd = -1;
 }
 
+static void write_to_log(struct http_ctx *ctx, struct http_req *req)
+{
+	time_t rawtime;
+	struct tm *timeinfo;
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+	char formatted_time[32];
+	strcpy(formatted_time, asctime(timeinfo));
+	formatted_time[strlen(formatted_time) - 1] = '\0';
+
+	init_log();
+	fprintf(
+		log_file,
+		"[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n",
+		formatted_time,
+		ctx->remote_addr, ctx->remote_port,
+		req->http_method, req->http_path,
+		req->http_host_hdr, ctx->http_code_status
+	);
+}
+
 static void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 {
 	struct http_ctx *ctx = find_http_ctx(sockfd);
@@ -236,23 +257,7 @@ static void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 	response_code = strtok_r(NULL, " ", &svptr);
 	strcpy(ctx->http_code_status, response_code);
 
-	time_t rawtime;
-	struct tm *timeinfo;
-	time(&rawtime);
-	timeinfo = localtime(&rawtime);
-	char formatted_time[32];
-	strcpy(formatted_time, asctime(timeinfo));
-	formatted_time[strlen(formatted_time) - 1] = '\0';
-
-	init_log();
-	fprintf(
-		log_file,
-		"[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n",
-		formatted_time,
-		ctx->remote_addr, ctx->remote_port,
-		req->http_method, req->http_path,
-		req->http_host_hdr, ctx->http_code_status
-	);
+	write_to_log(ctx, req);
 	char *next_ptr = eof_ptr+LINEBREAK_LEN;
 	ctx->ptr_raw_http_res_hdr = next_ptr;
 }
