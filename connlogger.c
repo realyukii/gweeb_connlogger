@@ -142,7 +142,7 @@ void unwatch_connection(struct http_ctx *ctx)
 
 void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 {
-	struct http_ctx *find_ctx = find_ctx(sockfd);
+	struct http_ctx *ctx = find_ctx(sockfd);
 	if (ctx != NULL) {
 		/*
 		* handle partial send by concat HTTP request header
@@ -457,7 +457,7 @@ int close(int fd)
 		errno = -ret;
 		ret = -1;
 	} else {
-		struct http_ctx *ctx = find_ctx(sockfd);
+		struct http_ctx *ctx = find_ctx(fd);
 
 		if (ctx != NULL)
 			unwatch_connection(ctx);
