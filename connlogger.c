@@ -44,7 +44,7 @@ static struct http_ctx network_state[POOL_SZ] = {
 	[0 ... POOL_SZ-1] = { .sockfd = -1 }
 };
 
-static struct http_ctx *find_ctx(int sockfd)
+static struct http_ctx *find_http_ctx(int sockfd)
 {
 	struct http_ctx *ctx = NULL;
 	for (size_t i = 0; i < POOL_SZ; i++) {
@@ -143,7 +143,7 @@ static void unwatch_connection(struct http_ctx *ctx)
 
 static void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 {
-	struct http_ctx *ctx = find_ctx(sockfd);
+	struct http_ctx *ctx = find_http_ctx(sockfd);
 	if (ctx == NULL)
 		return;
 
@@ -200,7 +200,7 @@ static void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 
 static void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 {
-	struct http_ctx *ctx = find_ctx(sockfd);
+	struct http_ctx *ctx = find_http_ctx(sockfd);
 	if (ctx == NULL)
 		return;
 
@@ -323,7 +323,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	if (addr->sa_family != AF_INET || addr->sa_family != AF_INET6)
 		return ret;
 
-	struct http_ctx *ctx = find_ctx(sockfd);
+	struct http_ctx *ctx = find_http_ctx(sockfd);
 	if (ctx == NULL)
 		return ret;
 
@@ -482,7 +482,7 @@ int close(int fd)
 		errno = -ret;
 		ret = -1;
 	} else {
-		struct http_ctx *ctx = find_ctx(fd);
+		struct http_ctx *ctx = find_http_ctx(fd);
 
 		if (ctx != NULL)
 			unwatch_connection(ctx);
