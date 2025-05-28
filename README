@@ -11,3 +11,5 @@ topic I learned on part 2:
 - parsing streamed data in C
 - queue data structure
 - edge cases when handling HTTP connection
+
+Compiled and tested on: Linux x86_64 glibc.
