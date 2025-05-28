@@ -43,6 +43,19 @@ static struct http_ctx network_state[POOL_SZ] = {
 	[0 ... POOL_SZ-1] = { .sockfd = -1 }
 };
 
+struct http_ctx *find_ctx(int sockfd)
+{
+	struct http_ctx *ctx = NULL;
+	for (size_t i = 0; i < POOL_SZ; i++) {
+		if (network_state[i].sockfd == sockfd) {
+			ctx = &network_state[i];
+			break;
+		}
+	}
+
+	return ctx;
+}
+
 void enqueue(struct http_req_queue *q, struct http_req http_req)
 {
 	/* make sure the queue is not full */
@@ -129,14 +142,7 @@ void unwatch_connection(struct http_ctx *ctx)
 
 void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 {
-	struct http_ctx *ctx = NULL;
-	for (size_t i = 0; i < POOL_SZ; i++) {
-		if (network_state[i].sockfd == sockfd) {
-			ctx = &network_state[i];
-			break;
-		}
-	}
-
+	struct http_ctx *find_ctx = find_ctx(sockfd);
 	if (ctx != NULL) {
 		/*
 		* handle partial send by concat HTTP request header
@@ -190,13 +196,7 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 
 void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 {
-	struct http_ctx *ctx = NULL;
-	for (size_t i = 0; i < POOL_SZ; i++) {
-		if (network_state[i].sockfd == sockfd) {
-			ctx = &network_state[i];
-			break;
-		}
-	}
+	struct http_ctx *ctx = find_ctx(sockfd);
 
 	if (ctx != NULL) {
 		/*
@@ -297,13 +297,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	);
 
 	if (addr->sa_family == AF_INET || addr->sa_family == AF_INET6) {
-		struct http_ctx *ctx = NULL;
-		for (size_t i = 0; i < POOL_SZ; i++) {
-			if (network_state[i].sockfd == sockfd) {
-				ctx = &network_state[i];
-				break;
-			}
-		}
+		struct http_ctx *ctx = find_ctx(sockfd);
 
 		if (ctx != NULL) {
 			const struct sockaddr_in *in = (void *)addr;
@@ -463,13 +457,7 @@ int close(int fd)
 		errno = -ret;
 		ret = -1;
 	} else {
-		struct http_ctx *ctx = NULL;
-		for (size_t i = 0; i < POOL_SZ; i++) {
-			if (network_state[i].sockfd == fd) {
-				ctx = &network_state[i];
-				break;
-			}
-		}
+		struct http_ctx *ctx = find_ctx(sockfd);
 
 		if (ctx != NULL)
 			unwatch_connection(ctx);
