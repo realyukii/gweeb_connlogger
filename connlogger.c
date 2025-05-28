@@ -180,7 +180,7 @@ static void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 
 	ctx->ptr_raw_http_req_hdr = possible_http;
 
-	char end_header[] = "\r\n\r\n";
+	const char end_header[] = "\r\n\r\n";
 	char *start = ctx->ptr_raw_http_req_hdr;
 	char *pos;
 
