@@ -283,7 +283,7 @@ int socket(int domain, int type, int protocol)
 	}
 
 	for (size_t i = 0; i < POOL_SZ; i++) {
-		struct http_ctx *ctx = network_state[i];
+		struct http_ctx *ctx = &network_state[i];
 		if (ctx->sockfd != -1)
 			continue;
 
