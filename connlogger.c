@@ -13,6 +13,7 @@
 #define POOL_SZ 100
 #define REQ_QUEUE_SZ 32
 #define LINEBREAK_LEN 4
+
 static FILE *log_file = NULL;
 
 struct http_req {
@@ -43,7 +44,7 @@ static struct http_ctx network_state[POOL_SZ] = {
 	[0 ... POOL_SZ-1] = { .sockfd = -1 }
 };
 
-struct http_ctx *find_ctx(int sockfd)
+static struct http_ctx *find_ctx(int sockfd)
 {
 	struct http_ctx *ctx = NULL;
 	for (size_t i = 0; i < POOL_SZ; i++) {
@@ -56,7 +57,7 @@ struct http_ctx *find_ctx(int sockfd)
 	return ctx;
 }
 
-void enqueue(struct http_req_queue *q, struct http_req http_req)
+static void enqueue(struct http_req_queue *q, struct http_req http_req)
 {
 	/* make sure the queue is not full */
 	if (q->tail == REQ_QUEUE_SZ)
@@ -93,7 +94,7 @@ static void init_log(void)
 	setvbuf(log_file, NULL, _IOLBF, 0);
 }
 
-char *validate_method(const char raw_bytes[])
+static char *validate_method(const char raw_bytes[])
 {
 	const char *http_methods[] = {
 		"GET", "POST", "HEAD", "PATCH", "PUT",
@@ -111,7 +112,7 @@ char *validate_method(const char raw_bytes[])
 	return method_ptr;
 }
 
-char *validate_http_ver(const char raw_bytes[])
+static char *validate_http_ver(const char raw_bytes[])
 {
 	/* for now only support logging for HTTP/1.1 */
 	const char *http_ver_list[] = {"HTTP/1.1 ", NULL};
@@ -127,7 +128,7 @@ char *validate_http_ver(const char raw_bytes[])
 	return http_ver_ptr;
 }
 
-void unwatch_connection(struct http_ctx *ctx)
+static void unwatch_connection(struct http_ctx *ctx)
 {
 	/*
 	* weird, free cause segfault on google chrome browser
@@ -140,7 +141,7 @@ void unwatch_connection(struct http_ctx *ctx)
 	ctx->sockfd = -1;
 }
 
-void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
+static void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 {
 	struct http_ctx *ctx = find_ctx(sockfd);
 	if (ctx == NULL)
@@ -197,7 +198,7 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 	}
 }
 
-void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
+static void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 {
 	struct http_ctx *ctx = find_ctx(sockfd);
 	if (ctx == NULL)
