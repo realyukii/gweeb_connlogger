@@ -1,5 +1,8 @@
 analyze disassembled handle_parsing_localbuf function, the library is compiled with: `gcc -shared -Os -g3 -fpic -fPIC`
 
+size of struct http_ctx:
+4 + 46 + 2 + (4 + 4 + 8*(8 + 1 + 8000+1 + 63+253+1)) + 8 + 8 + 8 + 8 + 4 + (4+4) byte alignment somewhere in the struct
+
 prologue
 ```
 Dump of assembler code for function handle_parsing_localbuf:

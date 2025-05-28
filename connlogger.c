@@ -27,7 +27,6 @@ struct http_req_queue {
 	struct http_req array[REQ_QUEUE_SZ];
 };
 
-// 4 + 46 + 2 + (4 + 4 + 8*(8 + 1 + 8000+1 + 63+253+1)) + 8 + 8 + 8 + 8 + 4 + (4+4) byte alignment somewhere in the struct
 struct http_ctx {
 	int sockfd;
 	char remote_addr[INET6_ADDRSTRLEN];
@@ -83,7 +82,10 @@ static void init_log(void)
 
 char *validate_method(const char raw_bytes[])
 {
-	const char *http_methods[] = {"GET", "POST", "HEAD", "PATCH", "PUT", "DELETE", "OPTIONS", "CONNECT", "TRACE", NULL};
+	const char *http_methods[] = {
+		"GET", "POST", "HEAD", "PATCH", "PUT",
+		"DELETE", "OPTIONS", "CONNECT", "TRACE", NULL
+	};
 	const char **ptr = http_methods;
 	char *method_ptr = NULL;
 	while (*ptr) {
@@ -116,7 +118,8 @@ void unwatch_connection(struct http_ctx *ctx)
 {
 	/*
 	* weird, free cause segfault on google chrome browser
-	* even though it's already guaranteed to be malloc'ed as the ctx is only available through socket() call which call calloc
+	* even though it's already guaranteed to be malloc'ed as
+	* the ctx is only available through socket() call which call calloc
 	*/
 	// free(ctx->raw_http_res_hdr);
 	// free(ctx->raw_http_req_hdr);
@@ -135,7 +138,10 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 	}
 
 	if (ctx != NULL) {
-		/* handle partial send by concat HTTP request header until \r\n\r\n */
+		/*
+		* handle partial send by concat HTTP request header
+		* until \r\n\r\n
+		*/
 		strncat(ctx->ptr_raw_http_req_hdr, buf, buf_len);
 
 		char end_header[] = "\r\n\r\n";
@@ -146,8 +152,13 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 		char *start = ctx->ptr_raw_http_req_hdr;
 		char *pos;
 
-		/* enqueue more than one times if the buffer have multiple request (either HTTP pipeline or HTTP keep-alive) */
-		/* when we have validated method and get crlf crlf, data ready to be parsed */
+		/*
+		* enqueue more than one times if the buffer have
+		* multiple request (either HTTP pipeline or HTTP keep-alive).
+		*
+		* when we have validated method and get crlf crlf,
+		* data ready to be parsed.
+		*/
 		while ((pos = strstr(start, end_header)) != NULL) {
 			*pos = '\0';
 			int str_len = strlen(start);
@@ -188,7 +199,10 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 	}
 
 	if (ctx != NULL) {
-		/* handle partial recv by concat HTTP response header until \r\n\r\n */
+		/*
+		* handle partial recv by concat HTTP response header
+		* until \r\n\r\n
+		*/
 		strncat(ctx->ptr_raw_http_res_hdr, buf, buf_len);
 
 		char *possible_http = validate_http_ver(ctx->ptr_raw_http_res_hdr);
@@ -224,11 +238,12 @@ void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 				strcpy(formatted_time, asctime(timeinfo));
 				formatted_time[strlen(formatted_time) - 1] = '\0';
 
-				char formatted_log[1024] = {0};
-				sprintf(formatted_log, "[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n", formatted_time, ctx->remote_addr, ctx->remote_port, req->http_method, req->http_path, req->http_host_hdr, ctx->http_code_status);
-
 				init_log();
-				fwrite(formatted_log, strlen(formatted_log), 1, log_file);
+				fprintf(
+					log_file,
+					"[%s]|address %s:%d|HTTP Ver: HTTP/1.1|Method: %s|Path: %s|%s|HTTP Response: %s\n",
+					formatted_time, ctx->remote_addr, ctx->remote_port, req->http_method, req->http_path, req->http_host_hdr, ctx->http_code_status
+				);
 				char *next_ptr = eof_ptr+LINEBREAK_LEN;
 				ctx->ptr_raw_http_res_hdr = next_ptr;
 			}
@@ -242,7 +257,7 @@ int socket(int domain, int type, int protocol)
 	asm volatile (
 		"syscall"
 		: "=a" (ret)
-		: "a" (__NR_socket),	/* %rax */
+		: "a" (__NR_socket),		/* %rax */
 		  "D" (domain),			/* %rdi */
 		  "S" (type),			/* %rsi */
 		  "d" (protocol)		/* %rdx */
@@ -250,10 +265,6 @@ int socket(int domain, int type, int protocol)
 	);
 
 	if (ret < 0) {
-		/* QUESTION:
-		* is manually set errno necessary? quote from the manual: 'which is set by system calls'
-		* isn't it already handled by inline assembly above?
-		*/
 		errno = -ret;
 		ret = -1;
 	} else if (domain == AF_INET || domain == AF_INET6) {
@@ -278,7 +289,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	asm volatile (
 		"syscall"
 		:"=a" (ret)
-		:"a" (__NR_connect),	/* %rax */
+		:"a" (__NR_connect),		/* %rax */
 		 "D" (sockfd),			/* %rdi */
 		 "S" (addr),			/* %rsi */
 		 "d" (addrlen)			/* %rdx */
@@ -316,7 +327,9 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	return ret;
 }
 
-ssize_t sendto(int sockfd, const void *buf, size_t size, int flags, const struct sockaddr *dst_addr, socklen_t addrlen)
+ssize_t sendto(
+	int sockfd, const void *buf, size_t size, int flags,
+	const struct sockaddr *dst_addr, socklen_t addrlen)
 {
 	register int _flags asm("r10") = flags;
 	register const struct sockaddr *_dest_addr asm("r8") = dst_addr;
@@ -325,7 +338,7 @@ ssize_t sendto(int sockfd, const void *buf, size_t size, int flags, const struct
 	asm volatile (
 		"syscall"
 		: "=a" (ret)
-		: "a" (__NR_sendto),	/* %rax */
+		: "a" (__NR_sendto),		/* %rax */
 		  "D" (sockfd),			/* %rdi */
 		  "S" (buf),			/* %rsi */
 		  "d" (size),			/* %rdx */
@@ -345,7 +358,9 @@ ssize_t sendto(int sockfd, const void *buf, size_t size, int flags, const struct
 	return ret;
 }
 
-ssize_t recvfrom(int sockfd, void *buf, size_t size, int flags, struct sockaddr *src_addr, socklen_t *addrlen)
+ssize_t recvfrom(
+	int sockfd, void *buf, size_t size, int flags,
+	struct sockaddr *src_addr, socklen_t *addrlen)
 {
 	register int _flags asm("r10") = flags;
 	register struct sockaddr *_dest_addr asm("r8") = src_addr;
@@ -354,7 +369,7 @@ ssize_t recvfrom(int sockfd, void *buf, size_t size, int flags, struct sockaddr 
 	asm volatile (
 		"syscall"
 		: "=a" (ret)
-		: "a" (__NR_recvfrom),	/* %rax */
+		: "a" (__NR_recvfrom),		/* %rax */
 		  "D" (sockfd),			/* %rdi */
 		  "S" (buf),			/* %rsi */
 		  "d" (size),			/* %rdx */
@@ -381,7 +396,7 @@ ssize_t read(int fd, void *buf, size_t count)
 		"syscall"
 		: "=a" (ret)
 		: "a" (__NR_read),		/* %rax */
-		  "D" (fd),				/* %rdi */
+		  "D" (fd),			/* %rdi */
 		  "S" (buf),			/* %rsi */
 		  "d" (count)			/* %rdx */
 		: "memory", "rcx", "r11", "cc"
@@ -404,7 +419,7 @@ ssize_t write(int fd, const void *buf, size_t count)
 		"syscall"
 		: "=a" (ret)
 		: "a" (__NR_write),		/* %rax */
-		  "D" (fd),				/* %rdi */
+		  "D" (fd),			/* %rdi */
 		  "S" (buf),			/* %rsi */
 		  "d" (count)			/* %rdx */
 		: "memory", "rcx", "r11", "cc"
@@ -436,7 +451,7 @@ int close(int fd)
 	asm volatile (
 		"syscall"
 		: "=a" (ret)
-		: "a" (__NR_close),	/* %rax */
+		: "a" (__NR_close),		/* %rax */
 		  "D" (fd)			/* %rdi */
 		: "memory", "rcx", "r11", "cc"
 	);
@@ -445,10 +460,6 @@ int close(int fd)
 		errno = -ret;
 		ret = -1;
 	} else {
-		/*
-		* some 'unwanted' socket file descriptor still accidently registered on context, so we need to unwatch it if any
-		* my gdb session shows it only perform socket() -> close() sequence
-		*/
 		struct http_ctx *ctx = NULL;
 		for (size_t i = 0; i < POOL_SZ; i++) {
 			if (network_state[i].sockfd == fd) {

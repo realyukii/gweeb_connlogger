@@ -5,7 +5,7 @@
 - [well-written example](gist.github.com/ammarfaizi2/1e1424f987cfbe3e3c3b571b6e590923) as references
 - [ChatGPT](https://chatgpt.com/share/682c9388-e6dc-8002-a209-fe11def5a65e) - debugging a shared library
 - [stackoverflow](https://stackoverflow.com/questions/15997759/constraining-r10-register-in-gcc-inline-x86-64-assembly) - r10 register is not available in constraint letter
-
+- [telegram](https://t.me/GNUWeeb/1169097) - review and suggestion by sir Ammar
 ### glibc
 list of used glibc's function:
 - `sprintf`
@@ -39,6 +39,7 @@ skenario tertentu yang saat ini dapat ditangani:
 - re-use existing socket, HTTP keep-alive (?)
 - short recv dan partial send
 - transfer encoding chunked
+- websocket switch protocol
 
 additional note:
 - `recvfrom` dan `sendto` digunakan untuk jaga-jaga jika ada program yang langsung call ke situ dan gak ke-catch di `send` ataupun `recv`
@@ -112,3 +113,7 @@ gef➤  hexdump byte $rsi
 0x00007ffff6dfe070     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00    ................
 gef➤  
 ```
+
+---
+some 'unwanted' socket file descriptor still accidently registered on context, so we need to unwatch it if any
+my gdb session shows it only perform socket() -> close() sequence
