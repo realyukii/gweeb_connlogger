@@ -172,18 +172,18 @@ void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 	while ((pos = strstr(start, end_header)) != NULL) {
 		*pos = '\0';
 		int str_len = strlen(start);
-		char tmpstr[str_len];
-		char *saveptr_tmpstr = NULL;
-		strcpy(tmpstr, start);
+		char tmpstr_a[str_len];
+		char *saveptr_a = NULL;
+		strcpy(tmpstr_a, start);
 		const char keyword[] = "Host:";
-		const char *method = strtok_r(tmpstr, " ", &saveptr_tmpstr);
-		const char *path = strtok_r(NULL, " ", &saveptr_tmpstr);
+		const char *method = strtok_r(tmpstr_a, " ", &saveptr_a);
+		const char *path = strtok_r(NULL, " ", &saveptr_a);
 
-		char anothertmpstr[str_len];
-		char *svptr = NULL;
-		strcpy(anothertmpstr, start);
-		char *http_host_hdr = strcasestr(anothertmpstr, keyword);
-		strtok_r(http_host_hdr, "\r\n", &svptr);
+		char tmpstr_b[str_len];
+		char *saveptr_b = NULL;
+		strcpy(tmpstr_b, start);
+		char *http_host_hdr = strcasestr(tmpstr_b, keyword);
+		strtok_r(http_host_hdr, "\r\n", &saveptr_b);
 
 		struct http_req req;
 		strcpy(req.http_method, method);
@@ -277,14 +277,15 @@ int socket(int domain, int type, int protocol)
 	}
 
 	for (size_t i = 0; i < POOL_SZ; i++) {
-		if (network_state[i].sockfd != -1)
+		struct http_ctx *ctx = network_state[i];
+		if (ctx->sockfd != -1)
 			continue;
 
-		network_state[i].sockfd = ret;
-		network_state[i].raw_http_req_hdr = calloc(1, RAW_BUFF_SZ);
-		network_state[i].raw_http_res_hdr = calloc(1, RAW_BUFF_SZ);
-		network_state[i].ptr_raw_http_req_hdr = network_state[i].raw_http_req_hdr;
-		network_state[i].ptr_raw_http_res_hdr = network_state[i].raw_http_res_hdr;
+		ctx->sockfd = ret;
+		ctx->raw_http_req_hdr = calloc(1, RAW_BUFF_SZ);
+		ctx->raw_http_res_hdr = calloc(1, RAW_BUFF_SZ);
+		ctx->ptr_raw_http_req_hdr = ctx->raw_http_req_hdr;
+		ctx->ptr_raw_http_res_hdr = ctx->raw_http_res_hdr;
 		break;
 	}
 
