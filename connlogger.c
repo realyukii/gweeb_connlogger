@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <sys/syscall.h>
 #include <stddef.h>
+#include <errno.h>
 
 int socket(int domain, int type, int protocol)
 {
@@ -15,6 +16,11 @@ int socket(int domain, int type, int protocol)
 		  "d" (protocol)	/* %rdx */
 		: "memory", "rcx", "r11", "cc"
 	);
+
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
 
 	return ret;
 }
@@ -32,6 +38,11 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		  "d" (addrlen)		/* %rdx */
 		: "memory", "rcx", "r11", "cc"
 	);
+
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
 
 	return ret;
 }
@@ -57,6 +68,11 @@ ssize_t recvfrom(
 		  "r" (_a)		/* %r9 */
 	);
 
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
+
 	return ret;
 }
 
@@ -81,6 +97,11 @@ ssize_t sendto(
 		  "r" (_a)		/* %r9 */
 		: "memory", "rcx", "r11", "cc"
 	);
+
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
 
 	return ret;
 }
@@ -108,6 +129,11 @@ ssize_t read(int fd, void *buf, size_t count)
 		: "memory", "rcx", "r11", "cc"
 	);
 
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
+
 	return ret;
 }
 
@@ -124,6 +150,11 @@ ssize_t write(int fd, const void *buf, size_t count)
 		  "d" (count)		/* %rdx */
 		: "memory", "rcx", "r11", "cc"
 	);
+
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
 
 	return ret;
 }
