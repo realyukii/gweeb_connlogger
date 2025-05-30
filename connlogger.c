@@ -135,8 +135,8 @@ static void unwatch_connection(struct http_ctx *ctx)
 	* even though it's already guaranteed to be malloc'ed as
 	* the ctx is only available through socket() call which call calloc
 	*/
-	// free(ctx->raw_http_res_hdr);
-	// free(ctx->raw_http_req_hdr);
+	free(ctx->raw_http_res_hdr);
+	free(ctx->raw_http_req_hdr);
 	memset(ctx, 0, sizeof(struct http_ctx));
 	ctx->sockfd = -1;
 }
@@ -355,7 +355,6 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	if (ret < 0) {
 		errno = -ret;
 		ret = -1;
-		return ret;
 	}
 
 	if (addr->sa_family != AF_INET && addr->sa_family != AF_INET6)
