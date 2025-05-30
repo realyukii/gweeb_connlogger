@@ -162,6 +162,10 @@ static void write_to_log(struct http_ctx *ctx, struct http_req *req)
 	);
 }
 
+static int append(void);
+static int parse_header(void);
+static int parse_body(void);
+
 static void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 {
 	struct http_ctx *ctx = find_http_ctx(sockfd);
@@ -279,6 +283,8 @@ int socket(int domain, int type, int protocol)
 		errno = -ret;
 		ret = -1;
 	} else if (domain != AF_INET || domain != AF_INET6) {
+		return ret;
+	} else if (!(type & SOCK_STREAM)) {
 		return ret;
 	}
 
