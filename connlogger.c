@@ -162,25 +162,19 @@ static void write_to_log(struct http_ctx *ctx, struct http_req *req)
 	);
 }
 
-static int append(void);
-static int parse_header(void);
-static int parse_body(void);
-
-static void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
+static int append(struct http_ctx *ctx, const void *buf, int len)
 {
-	struct http_ctx *ctx = find_http_ctx(sockfd);
-	if (ctx == NULL)
-		return;
+	// int cap, remaining;
+	strncat(ctx->ptr_raw_http_req_hdr, buf, len);
 
-	/*
-	* handle partial send by concat HTTP request header
-	* until \r\n\r\n
-	*/
-	strncat(ctx->ptr_raw_http_req_hdr, buf, buf_len);
+	return 0;
+}
 
+static int parse_req_header(struct http_ctx *ctx)
+{
 	char *possible_http = validate_method(ctx->ptr_raw_http_req_hdr);
 	if (possible_http == NULL)
-		return;
+		return -EINVAL;
 
 	ctx->ptr_raw_http_req_hdr = possible_http;
 
@@ -221,6 +215,32 @@ static void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 		memset(ctx->ptr_raw_http_req_hdr, 0, str_len);
 		start = pos + LINEBREAK_LEN;
 	}
+
+	return 0;
+}
+
+static int parse_body(void)
+{
+	/*
+	* if transfer encoding: chunked parse the body,
+	* otherwise discard body content
+	*/
+	return 0;
+}
+
+static void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
+{
+	struct http_ctx *ctx = find_http_ctx(sockfd);
+	if (ctx == NULL)
+		return;
+
+	/*
+	* handle partial send by concat HTTP request header
+	* until \r\n\r\n
+	*/
+	append(ctx, buf, buf_len);
+
+	parse_req_header(ctx);
 }
 
 static void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
@@ -282,7 +302,7 @@ int socket(int domain, int type, int protocol)
 	if (ret < 0) {
 		errno = -ret;
 		ret = -1;
-	} else if (domain != AF_INET || domain != AF_INET6) {
+	} else if (domain != AF_INET && domain != AF_INET6) {
 		return ret;
 	} else if (!(type & SOCK_STREAM)) {
 		return ret;
@@ -331,7 +351,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		return ret;
 	}
 
-	if (addr->sa_family != AF_INET || addr->sa_family != AF_INET6)
+	if (addr->sa_family != AF_INET && addr->sa_family != AF_INET6)
 		return ret;
 
 	struct http_ctx *ctx = find_http_ctx(sockfd);
