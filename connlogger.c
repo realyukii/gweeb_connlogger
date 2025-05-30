@@ -162,10 +162,10 @@ static void write_to_log(struct http_ctx *ctx, struct http_req *req)
 	);
 }
 
-static int append(struct http_ctx *ctx, const void *buf, int len)
+static int append(char *dest, const void *buf, int len)
 {
 	// int cap, remaining;
-	strncat(ctx->ptr_raw_http_req_hdr, buf, len);
+	strncat(dest, buf, len);
 
 	return 0;
 }
@@ -219,6 +219,41 @@ static int parse_req_header(struct http_ctx *ctx)
 	return 0;
 }
 
+static int parse_res_header(struct http_ctx *ctx)
+{
+	char *possible_http = validate_http_ver(ctx->ptr_raw_http_res_hdr);
+	if (possible_http == NULL)
+		return -EINVAL;
+
+	ctx->ptr_raw_http_res_hdr = possible_http;
+
+	char end_header[] = "\r\n\r\n";
+	char *eof_ptr = strstr(ctx->ptr_raw_http_res_hdr, end_header);
+	if (eof_ptr == NULL)
+		return -EINVAL;
+
+	/* data ready to be parsed */
+	*eof_ptr = '\0';
+
+	struct http_req *req = front(&ctx->http_req_queue);
+	if (req == NULL)
+		return -EINVAL;
+
+	char tmpbuf[strlen(ctx->ptr_raw_http_res_hdr)];
+	char *svptr = NULL;
+	char *response_code;
+	strcpy(tmpbuf, ctx->ptr_raw_http_res_hdr);
+	strtok_r(tmpbuf, " ", &svptr);
+	response_code = strtok_r(NULL, " ", &svptr);
+	strcpy(ctx->http_code_status, response_code);
+
+	write_to_log(ctx, req);
+	char *next_ptr = eof_ptr+LINEBREAK_LEN;
+	ctx->ptr_raw_http_res_hdr = next_ptr;
+
+	return 0;
+}
+
 static int parse_body(void)
 {
 	/*
@@ -238,7 +273,7 @@ static void handle_parsing_localbuf(int sockfd, const void *buf, int buf_len)
 	* handle partial send by concat HTTP request header
 	* until \r\n\r\n
 	*/
-	append(ctx, buf, buf_len);
+	append(ctx->ptr_raw_http_req_hdr, buf, buf_len);
 
 	parse_req_header(ctx);
 }
@@ -253,37 +288,9 @@ static void handle_parsing_networkbuf(int sockfd, const void *buf, int buf_len)
 	* handle partial recv by concat HTTP response header
 	* until \r\n\r\n
 	*/
-	strncat(ctx->ptr_raw_http_res_hdr, buf, buf_len);
+	append(ctx->ptr_raw_http_res_hdr, buf, buf_len);
 
-	char *possible_http = validate_http_ver(ctx->ptr_raw_http_res_hdr);
-	if (possible_http == NULL)
-		return;
-
-	ctx->ptr_raw_http_res_hdr = possible_http;
-
-	char end_header[] = "\r\n\r\n";
-	char *eof_ptr = strstr(ctx->ptr_raw_http_res_hdr, end_header);
-	if (eof_ptr == NULL)
-		return;
-
-	/* data ready to be parsed */
-	*eof_ptr = '\0';
-	
-	struct http_req *req = front(&ctx->http_req_queue);
-	if (req == NULL)
-		return;
-
-	char tmpbuf[strlen(ctx->ptr_raw_http_res_hdr)];
-	char *svptr = NULL;
-	char *response_code;
-	strcpy(tmpbuf, ctx->ptr_raw_http_res_hdr);
-	strtok_r(tmpbuf, " ", &svptr);
-	response_code = strtok_r(NULL, " ", &svptr);
-	strcpy(ctx->http_code_status, response_code);
-
-	write_to_log(ctx, req);
-	char *next_ptr = eof_ptr+LINEBREAK_LEN;
-	ctx->ptr_raw_http_res_hdr = next_ptr;
+	parse_res_header(ctx);
 }
 
 int socket(int domain, int type, int protocol)
