@@ -8,9 +8,14 @@
 #include <errno.h>
 
 #define DEFAULT_POOL_SZ 100
+#define DEFAULT_RAW_CAP 1024
 
 struct http_req {
+	char *raw_bytes;
+	size_t len;
+	size_t cap;
 };
+
 struct http_res {
 };
 
@@ -22,8 +27,8 @@ struct http_ctx {
 	struct http_res res;
 };
 
-static struct http_ctx *ctx_pool = NULL;
 static size_t current_pool_sz = DEFAULT_POOL_SZ;
+static struct http_ctx *ctx_pool = NULL;
 static FILE *file_log = NULL;
 
 static int init(void)
@@ -52,15 +57,58 @@ static int init(void)
 static void push_sockfd(int sockfd)
 {
 	/* TODO:
-	* find out how the pool will be resized when the current size is full
+	* find out how the pool will be resized when the current pool size is full
 	*/
 	struct http_ctx *c = ctx_pool;
 	for (size_t i = 0; i < current_pool_sz; i++) {
 		if (c[i].sockfd == 0) {
-			c[i].sockfd = sockfd;
+			c[i].req.raw_bytes = malloc(DEFAULT_RAW_CAP);
+			/*
+			* do not push current connection to the pool
+			* if we fail to allocate some memory
+			*/
+			if (c[i].req.raw_bytes != NULL) {
+				c[i].sockfd = sockfd;
+				c[i].req.cap = DEFAULT_RAW_CAP;
+			}
 			break;
 		}
 	}
+}
+
+static void concat_buf(const void *src, struct http_ctx *h, size_t len)
+{
+	size_t *append_pos = &h->req.len;
+	size_t incoming_len = *append_pos + len;
+	void *b = h->req.raw_bytes;
+
+	if (incoming_len <= h->req.cap) {
+		memcpy(b + *append_pos, src, len);
+		*append_pos += len;
+	} else {
+		/* we don't have enough space in the memory, let's resize it */
+		void *tmp = realloc(b, h->req.cap + incoming_len);
+		if (tmp == NULL) {
+			// TODO: should we free b?
+			return;
+		}
+		b = tmp;
+		memcpy(b + *append_pos, src, len);
+		*append_pos += len;
+		h->req.cap += incoming_len;
+	}
+}
+
+static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_len)
+{
+	/* TODO:
+	* what to do when we failed to concat? stop parsing completely?
+	*/
+	concat_buf(buf, h, buf_len);
+}
+
+static void handle_parse_remotebuf(void)
+{
 }
 
 static struct http_ctx *find_http_ctx(int sockfd)
@@ -89,6 +137,9 @@ static struct http_ctx *find_http_ctx(int sockfd)
 static void unwatch_sockfd(struct http_ctx *h)
 {
 	h->sockfd = 0;
+	h->req.cap = DEFAULT_RAW_CAP;
+	h->req.len = 0;
+	free(h->req.raw_bytes);
 }
 
 static void generate_current_time(char *buf)
@@ -192,8 +243,6 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
 	fill_address(h, addr);
 
-	write_log(h);
-
 	return ret;
 }
 
@@ -251,7 +300,14 @@ ssize_t sendto(
 	if (ret < 0) {
 		errno = -ret;
 		ret = -1;
+		return ret;
 	}
+
+	struct http_ctx *h = find_http_ctx(sockfd);
+	if (h == NULL)
+		return ret;
+	
+	handle_parse_localbuf(h, buf, ret);
 
 	return ret;
 }

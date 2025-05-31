@@ -12,6 +12,7 @@
 list of used glibc's function:
 from string:
 - `strcpy`
+- `memcpy`
 from time:
 - `time`
 - `localtime`
@@ -25,6 +26,8 @@ from arpa/inet:
 from stdlib:
 - `getenv`
 - `calloc`
+- `realloc`
+- `free`
 
 list of used glibc's defined constant and custom data type:
 from stdio:
