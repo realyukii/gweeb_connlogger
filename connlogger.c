@@ -270,3 +270,23 @@ ssize_t write(int fd, const void *buf, size_t count)
 
 	return ret;
 }
+
+int close(int fd)
+{
+	int ret;
+
+	asm volatile (
+		"syscall"
+		: "=a" (ret)
+		: "a" (__NR_close),	/* %rax */
+		  "D" (fd),		/* %rdi */
+		: "memory", "rcx", "r11", "cc"
+	);
+
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
+
+	return ret;
+}
