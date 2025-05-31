@@ -2,21 +2,47 @@
 #include <sys/syscall.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 
-struct http_req {
+#define DEFAULT_POOL_SZ 100
+
+static struct http_req {
 };
-struct http_res {
+static struct http_res {
 };
 
-struct http_ctx {
+static struct http_ctx {
 	int sockfd;
 	struct http_req req;
 	struct http_res res;
 };
 
-static struct http_ctx *pool = NULL;
-static FILE *log = NULL;
+static struct http_ctx *ctx_pool = NULL;
+static FILE *file_log = NULL;
+
+static int init(void)
+{
+	/* already initialised, skip duplicate init, exit. */
+	if (file_log != NULL && ctx_pool != NULL)
+		return -1;
+
+	const char *log_file = getenv("GWLOG_PATH");
+
+	/* do not init if there's no destination for parsed data to write */
+	if (log_file == NULL)
+		return -1;
+
+	file_log = fopen(log_file, "a");
+	if (file_log == NULL)
+		return -1;
+
+	ctx_pool = calloc(sizeof(struct http_ctx) * DEFAULT_POOL_SZ);
+	if (ctx_pool == NULL)
+		return -1;
+	
+	return 0;
+}
 
 int socket(int domain, int type, int protocol)
 {
@@ -36,6 +62,10 @@ int socket(int domain, int type, int protocol)
 		errno = -ret;
 		ret = -1;
 		return ret;
+	}
+
+	if (ctx_pool == NULL && init() == 0) {
+		/* TODO: push sockfd to the pool */
 	}
 
 	return ret;
