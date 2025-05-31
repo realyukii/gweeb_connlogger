@@ -7,12 +7,12 @@
 
 #define DEFAULT_POOL_SZ 100
 
-static struct http_req {
+struct http_req {
 };
-static struct http_res {
+struct http_res {
 };
 
-static struct http_ctx {
+struct http_ctx {
 	int sockfd;
 	struct http_req req;
 	struct http_res res;
@@ -37,7 +37,7 @@ static int init(void)
 	if (file_log == NULL)
 		return -1;
 
-	ctx_pool = calloc(sizeof(struct http_ctx) * DEFAULT_POOL_SZ);
+	ctx_pool = calloc(1, sizeof(struct http_ctx) * DEFAULT_POOL_SZ);
 	if (ctx_pool == NULL)
 		return -1;
 	
