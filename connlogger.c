@@ -78,7 +78,7 @@ static struct http_req *front(struct http_req_queue *q)
 		return NULL;
 
 	struct http_req *req = &q->req[q->head];
-	q->head++;
+	q->head = (q->head + 1) % q->capacity;
 	q->occupied--;
 
 	return req;
