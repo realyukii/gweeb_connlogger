@@ -11,6 +11,7 @@
 ### glibc
 list of used glibc's function:
 from string:
+- `strstr`
 - `strcpy`
 - `memcpy`
 from time:

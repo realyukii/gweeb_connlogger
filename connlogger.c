@@ -62,7 +62,7 @@ static void push_sockfd(int sockfd)
 	struct http_ctx *c = ctx_pool;
 	for (size_t i = 0; i < current_pool_sz; i++) {
 		if (c[i].sockfd == 0) {
-			c[i].req.raw_bytes = malloc(DEFAULT_RAW_CAP);
+			c[i].req.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
 			/*
 			* do not push current connection to the pool
 			* if we fail to allocate some memory
@@ -76,7 +76,25 @@ static void push_sockfd(int sockfd)
 	}
 }
 
-static void concat_buf(const void *src, struct http_ctx *h, size_t len)
+static char *find_method(const char *buf)
+{
+	const char *http_methods[] = {
+		"GET /", "POST /", "HEAD /", "PATCH /", "PUT /",
+		"DELETE /", "OPTIONS /", "CONNECT /", "TRACE /", NULL
+	};
+	const char **ptr = http_methods;
+	char *method_ptr = NULL;
+	while (*ptr) {
+		method_ptr = strstr(buf, *ptr);
+		if (method_ptr != NULL)
+			break;
+		ptr++;
+	}
+
+	return method_ptr;
+}
+
+static int concat_buf(const void *src, struct http_ctx *h, size_t len)
 {
 	size_t *append_pos = &h->req.len;
 	size_t incoming_len = *append_pos + len;
@@ -89,22 +107,48 @@ static void concat_buf(const void *src, struct http_ctx *h, size_t len)
 		/* we don't have enough space in the memory, let's resize it */
 		void *tmp = realloc(b, h->req.cap + incoming_len);
 		if (tmp == NULL) {
-			// TODO: should we free b?
-			return;
+			/* TODO:
+			* should we free b? if we decided to free b we need to
+			* figure out what to do on the next concat,
+			* so far raw_bytes only allocated from socket creation
+			*/
+			return -1;
 		}
 		b = tmp;
 		memcpy(b + *append_pos, src, len);
 		*append_pos += len;
 		h->req.cap += incoming_len;
 	}
+
+	return 0;
+}
+
+static void parse_req_hdr(struct http_req *r)
+{
+	char *method = find_method(r->raw_bytes);
+	if (method == NULL)
+		return;
+
+	char *end_of_hdr = strstr(r->raw_bytes, "\r\n\r\n");
+	if (end_of_hdr == NULL)
+		return;
+
+	/* TODO:
+	* now it's probably safe to parse the request header,
+	* we need to do something on raw_bytes
+	*/
 }
 
 static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_len)
 {
 	/* TODO:
 	* what to do when we failed to concat? stop parsing completely?
+	* for now, just make sure the concat operation success before proceed parsing
 	*/
-	concat_buf(buf, h, buf_len);
+	if (concat_buf(buf, h, buf_len) < 0)
+		return;
+	
+	parse_req_hdr(&h->req);
 }
 
 static void handle_parse_remotebuf(void)
