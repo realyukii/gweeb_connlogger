@@ -10,13 +10,21 @@
 
 ### glibc
 list of used glibc's function:
-- `sprintf`
-- `strlen`
-- `localtime`
-- `asctime`
+from stdio:
 - `fopen`
-- `fwrite`
+from stdlib:
 - `getenv`
+- `calloc`
+
+list of used glibc's defined constant and custom data type:
+from stdio:
+- typedef FILE
+from sys/syscall
+- system call number
+from arpa/inet:
+- struct sockaddr
+from errno:
+- errno
 
 ### alur program
 alur programnya saat ini:
