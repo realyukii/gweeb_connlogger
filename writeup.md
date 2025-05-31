@@ -23,6 +23,8 @@ from sys/syscall
 - system call number
 from arpa/inet:
 - struct sockaddr
+- AF_INET, AF_INET6
+- SOCK_STREAM
 from errno:
 - errno
 

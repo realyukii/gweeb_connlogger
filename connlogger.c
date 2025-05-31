@@ -79,9 +79,14 @@ int socket(int domain, int type, int protocol)
 		return ret;
 	}
 
-	if (ctx_pool == NULL && init() == 0) {
+	if (domain != AF_INET && domain != AF_INET6)
+		return ret;
+
+	if (!(type & SOCK_STREAM))
+		return ret;
+
+	if (ctx_pool == NULL && init() == 0)
 		push_sockfd(ret);
-	}
 
 	return ret;
 }
