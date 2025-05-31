@@ -1,7 +1,22 @@
 #include <arpa/inet.h>
 #include <sys/syscall.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <errno.h>
+
+struct http_req {
+};
+struct http_res {
+};
+
+struct http_ctx {
+	int sockfd;
+	struct http_req req;
+	struct http_res res;
+};
+
+static struct http_ctx *pool = NULL;
+static FILE *log = NULL;
 
 int socket(int domain, int type, int protocol)
 {
@@ -20,6 +35,7 @@ int socket(int domain, int type, int protocol)
 	if (ret < 0) {
 		errno = -ret;
 		ret = -1;
+		return ret;
 	}
 
 	return ret;
