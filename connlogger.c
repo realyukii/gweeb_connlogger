@@ -38,7 +38,7 @@ static int init(void)
 	if (file_log == NULL)
 		return -1;
 
-	ctx_pool = calloc(sizeof(struct http_ctx), DEFAULT_POOL_SZ);
+	ctx_pool = calloc(DEFAULT_POOL_SZ, sizeof(struct http_ctx));
 	if (ctx_pool == NULL)
 		return -1;
 	
@@ -57,6 +57,21 @@ static void push_sockfd(int sockfd)
 			break;
 		}
 	}
+}
+
+static struct http_ctx *find_http_ctx(int sockfd)
+{
+	struct http_ctx *h = NULL;
+	for (size_t i = 0; i < current_pool_sz; i++)
+	{
+		if (ctx_pool[i].sockfd != sockfd)
+			continue;
+
+		h = &ctx_pool[i];
+		break;
+	}
+	
+	return h;
 }
 
 int socket(int domain, int type, int protocol)
@@ -109,6 +124,15 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		errno = -ret;
 		ret = -1;
 	}
+
+	if (ctx_pool == NULL)
+		return ret;
+
+	struct http_ctx *h = find_http_ctx(sockfd);
+	if (h == NULL)
+		return ret;
+
+	fprintf(file_log, "test\n");
 
 	return ret;
 }
