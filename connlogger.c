@@ -32,22 +32,22 @@ struct http_req {
 	char *path;
 };
 
-struct http_req_raw {
+struct concated_buf {
 	char *raw_bytes;
 	size_t len;
 	size_t cap;
 };
 
-struct http_res {
-};
+typedef struct concated_buf http_req_raw;
+typedef struct concated_buf http_res_raw;
 
 struct http_ctx {
 	int sockfd;
 	char ip_addr[INET6_ADDRSTRLEN];
 	uint16_t port_addr;
 	struct http_req_queue req_queue;
-	struct http_req_raw raw_req;
-	struct http_res res;
+	http_req_raw raw_req;
+	http_res_raw res;
 };
 
 static size_t current_pool_sz = DEFAULT_POOL_SZ;
@@ -169,18 +169,18 @@ static char *find_method(const char *buf)
 	return method_ptr;
 }
 
-static int concat_buf(const void *src, struct http_ctx *h, size_t len)
+static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 {
-	size_t *append_pos = &h->raw_req.len;
+	size_t *append_pos = &buf->len;
 	size_t incoming_len = *append_pos + len;
-	void *b = h->raw_req.raw_bytes;
+	void *b = buf->raw_bytes;
 
-	if (incoming_len <= h->raw_req.cap) {
+	if (incoming_len <= buf->cap) {
 		memcpy(b + *append_pos, src, len);
 		*append_pos += len;
 	} else {
 		/* we don't have enough space in the memory, let's resize it */
-		void *tmp = realloc(b, h->raw_req.cap + incoming_len);
+		void *tmp = realloc(b, buf->cap + incoming_len);
 		if (tmp == NULL) {
 			/* TODO:
 			* should we free b? if we decided to free b we need to
@@ -192,13 +192,13 @@ static int concat_buf(const void *src, struct http_ctx *h, size_t len)
 		b = tmp;
 		memcpy(b + *append_pos, src, len);
 		*append_pos += len;
-		h->raw_req.cap += incoming_len;
+		buf->cap += incoming_len;
 	}
 
 	return 0;
 }
 
-static void parse_req_hdr(struct http_req_raw *r)
+static void parse_req_hdr(http_req_raw *r)
 {
 	char *method = find_method(r->raw_bytes);
 	if (method == NULL)
@@ -220,7 +220,7 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 	* what to do when we failed to concat? stop parsing completely?
 	* for now, just make sure the concat operation success before proceed parsing
 	*/
-	if (concat_buf(buf, h, buf_len) < 0)
+	if (concat_buf(buf, &h->raw_req, buf_len) < 0)
 		return;
 	
 	parse_req_hdr(&h->raw_req);

@@ -28,6 +28,7 @@ from stdlib:
 - `getenv`
 - `calloc`
 - `realloc`
+- `malloc`
 - `free`
 
 list of used glibc's defined constant and custom data type:
