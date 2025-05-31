@@ -65,6 +65,14 @@ static void push_sockfd(int sockfd)
 
 static struct http_ctx *find_http_ctx(int sockfd)
 {
+	/*
+	* we are not allowed to assume ctx_pool to always be valid
+	* one of the concrete example is when find_http_ctx is called
+	* from close() and the init is not called yet
+	*/
+	if (ctx_pool == NULL)
+		return;
+
 	struct http_ctx *h = NULL;
 	for (size_t i = 0; i < current_pool_sz; i++)
 	{
@@ -96,6 +104,14 @@ static void generate_current_time(char *buf)
 	*/
 	asctime_r(timeinfo, buf);
 	buf[26 - 2] = '\0';
+}
+
+static void write_log(struct http_ctx *h)
+{
+	char human_readable_time[26] = {0};
+	generate_current_time(human_readable_time);
+
+	fprintf(file_log, "[%s] %s:%d\n", human_readable_time, h->ip_addr, h->port_addr);
 }
 
 static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
@@ -175,6 +191,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		return ret;
 
 	fill_address(h, addr);
+
+	write_log(h);
 
 	return ret;
 }
@@ -308,9 +326,12 @@ int close(int fd)
 		ret = -1;
 	}
 
-	struct http_ctx *h = find_http_ctx(fd);
-	if (h != NULL)
-		unwatch_sockfd(h);
+	/* exclude stdin file descriptor, just in case... */
+	if (fd != 0) {
+		struct http_ctx *h = find_http_ctx(fd);
+		if (h != NULL)
+			unwatch_sockfd(h);
+	}
 
 	return ret;
 }
