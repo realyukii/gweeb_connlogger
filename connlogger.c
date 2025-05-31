@@ -7,10 +7,32 @@
 #include <time.h>
 #include <errno.h>
 
+/* TODO:
+* find a way to reallocate the queue if the default size is exceeded.
+* we need to implement a queue that can grow and behave circular
+*/
+#define DEFAULT_REQ_QUEUE_SZ 16
 #define DEFAULT_POOL_SZ 100
 #define DEFAULT_RAW_CAP 1024
+#define MAX_HTTP_METHOD_LEN 8
+#define MAX_HOST_LEN 512
 
+struct http_req_queue {
+	size_t head;
+	size_t tail;
+	size_t capacity;
+	size_t occupied;
+	struct http_req *req;
+};
+
+/* TODO: find a way to manage path in dynamic memory */
 struct http_req {
+	char method[MAX_HTTP_METHOD_LEN];
+	char host[MAX_HOST_LEN];
+	char *path;
+};
+
+struct http_req_raw {
 	char *raw_bytes;
 	size_t len;
 	size_t cap;
@@ -23,13 +45,65 @@ struct http_ctx {
 	int sockfd;
 	char ip_addr[INET6_ADDRSTRLEN];
 	uint16_t port_addr;
-	struct http_req req;
+	struct http_req_queue req_queue;
+	struct http_req_raw raw_req;
 	struct http_res res;
 };
 
 static size_t current_pool_sz = DEFAULT_POOL_SZ;
 static struct http_ctx *ctx_pool = NULL;
 static FILE *file_log = NULL;
+
+static void init_queue(struct http_req_queue *q)
+{
+	q->capacity = DEFAULT_REQ_QUEUE_SZ;
+	q->req = malloc(DEFAULT_REQ_QUEUE_SZ * sizeof(struct http_req));
+}
+
+static int queue_grow(struct http_req_queue *q, size_t new_cap)
+{
+	void *tmp = realloc(q->req, new_cap);
+	if (tmp == NULL)
+	 	return -1;
+	
+	q->req = tmp;
+	q->capacity = new_cap;
+	return 0;
+}
+
+static struct http_req *front(struct http_req_queue *q)
+{
+	/* make sure the queue is not empty */
+	if (q->occupied == 0)
+		return NULL;
+
+	struct http_req *req = &q->req[q->head];
+	q->head++;
+	q->occupied--;
+
+	return req;
+}
+
+/* TODO:
+* figure out how to handle a scenario where for some reason enqueue failed
+* this failure can affect the pairing mechanism between HTTP request and response
+*/
+static int enqueue(struct http_req_queue *q, struct http_req req)
+{
+	/* if the queue is full, re-size the default size twice */
+	if (q->occupied == q->capacity) {
+		size_t new_cap = q->capacity * 2;
+		/* abort the enqueue operation if it fail to re-size */
+		if (queue_grow(q, new_cap) < 0)
+			return -1;
+	}
+
+	q->req[q->tail] = req;
+	q->tail = (q->tail + 1) % q->capacity;
+	q->occupied++;
+
+	return 0;
+}
 
 static int init(void)
 {
@@ -62,14 +136,15 @@ static void push_sockfd(int sockfd)
 	struct http_ctx *c = ctx_pool;
 	for (size_t i = 0; i < current_pool_sz; i++) {
 		if (c[i].sockfd == 0) {
-			c[i].req.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
+			c[i].raw_req.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
 			/*
 			* do not push current connection to the pool
 			* if we fail to allocate some memory
 			*/
-			if (c[i].req.raw_bytes != NULL) {
+			if (c[i].raw_req.raw_bytes != NULL) {
 				c[i].sockfd = sockfd;
-				c[i].req.cap = DEFAULT_RAW_CAP;
+				c[i].raw_req.cap = DEFAULT_RAW_CAP;
+				init_queue(&c[i].req_queue);
 			}
 			break;
 		}
@@ -96,16 +171,16 @@ static char *find_method(const char *buf)
 
 static int concat_buf(const void *src, struct http_ctx *h, size_t len)
 {
-	size_t *append_pos = &h->req.len;
+	size_t *append_pos = &h->raw_req.len;
 	size_t incoming_len = *append_pos + len;
-	void *b = h->req.raw_bytes;
+	void *b = h->raw_req.raw_bytes;
 
-	if (incoming_len <= h->req.cap) {
+	if (incoming_len <= h->raw_req.cap) {
 		memcpy(b + *append_pos, src, len);
 		*append_pos += len;
 	} else {
 		/* we don't have enough space in the memory, let's resize it */
-		void *tmp = realloc(b, h->req.cap + incoming_len);
+		void *tmp = realloc(b, h->raw_req.cap + incoming_len);
 		if (tmp == NULL) {
 			/* TODO:
 			* should we free b? if we decided to free b we need to
@@ -117,13 +192,13 @@ static int concat_buf(const void *src, struct http_ctx *h, size_t len)
 		b = tmp;
 		memcpy(b + *append_pos, src, len);
 		*append_pos += len;
-		h->req.cap += incoming_len;
+		h->raw_req.cap += incoming_len;
 	}
 
 	return 0;
 }
 
-static void parse_req_hdr(struct http_req *r)
+static void parse_req_hdr(struct http_req_raw *r)
 {
 	char *method = find_method(r->raw_bytes);
 	if (method == NULL)
@@ -148,7 +223,7 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 	if (concat_buf(buf, h, buf_len) < 0)
 		return;
 	
-	parse_req_hdr(&h->req);
+	parse_req_hdr(&h->raw_req);
 }
 
 static void handle_parse_remotebuf(void)
@@ -181,9 +256,9 @@ static struct http_ctx *find_http_ctx(int sockfd)
 static void unwatch_sockfd(struct http_ctx *h)
 {
 	h->sockfd = 0;
-	h->req.cap = DEFAULT_RAW_CAP;
-	h->req.len = 0;
-	free(h->req.raw_bytes);
+	h->raw_req.cap = DEFAULT_RAW_CAP;
+	h->raw_req.len = 0;
+	free(h->raw_req.raw_bytes);
 }
 
 static void generate_current_time(char *buf)
@@ -384,6 +459,10 @@ ssize_t read(int fd, void *buf, size_t count)
 		ret = -1;
 	}
 
+	/* TODO:
+	* do the same like recvfrom does
+	*/
+
 	return ret;
 }
 
@@ -405,6 +484,10 @@ ssize_t write(int fd, const void *buf, size_t count)
 		errno = -ret;
 		ret = -1;
 	}
+
+	/* TODO:
+	* do the same like sendto does
+	*/
 
 	return ret;
 }
