@@ -78,6 +78,11 @@ static struct http_ctx *find_http_ctx(int sockfd)
 	return h;
 }
 
+static void unwatch_sockfd(struct http_ctx *h)
+{
+	h->sockfd = 0;
+}
+
 static void generate_current_time(char *buf)
 {
 	time_t rawtime;
@@ -109,11 +114,6 @@ static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
 		h->port_addr = ntohs(in6->sin6_port);
 		break;
 	}
-
-	char human_readable_time[26] = {0};
-	generate_current_time(human_readable_time);
-
-	fprintf(file_log, "[%s] %s:%d\n", human_readable_time, h->ip_addr, h->port_addr);
 }
 
 int socket(int domain, int type, int protocol)
@@ -307,6 +307,10 @@ int close(int fd)
 		errno = -ret;
 		ret = -1;
 	}
+
+	struct http_ctx *h = find_http_ctx(fd);
+	if (h != NULL)
+		unwatch_sockfd(h);
 
 	return ret;
 }
