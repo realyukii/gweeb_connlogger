@@ -29,6 +29,7 @@ struct http_req_queue {
 struct http_req {
 	char method[MAX_HTTP_METHOD_LEN];
 	char host[MAX_HOST_LEN];
+	char response_code[4];
 	char *path;
 };
 
@@ -47,7 +48,7 @@ struct http_ctx {
 	uint16_t port_addr;
 	struct http_req_queue req_queue;
 	http_req_raw raw_req;
-	http_res_raw res;
+	http_res_raw raw_res;
 };
 
 static size_t current_pool_sz = DEFAULT_POOL_SZ;
@@ -137,11 +138,12 @@ static void push_sockfd(int sockfd)
 	for (size_t i = 0; i < current_pool_sz; i++) {
 		if (c[i].sockfd == 0) {
 			c[i].raw_req.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
+			c[i].raw_res.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
 			/*
 			* do not push current connection to the pool
 			* if we fail to allocate some memory
 			*/
-			if (c[i].raw_req.raw_bytes != NULL) {
+			if (c[i].raw_req.raw_bytes != NULL && c[i].raw_res.raw_bytes) {
 				c[i].sockfd = sockfd;
 				c[i].raw_req.cap = DEFAULT_RAW_CAP;
 				init_queue(&c[i].req_queue);
@@ -198,20 +200,44 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 	return 0;
 }
 
-static void parse_req_hdr(http_req_raw *r)
+static int parse_res_hdr(http_res_raw *r, struct http_req *res)
 {
-	char *method = find_method(r->raw_bytes);
-	if (method == NULL)
-		return;
+	char *http_ver = strstr(r->raw_bytes, "HTTP/1.1");
+	if (http_ver == NULL)
+		return -1;
 
 	char *end_of_hdr = strstr(r->raw_bytes, "\r\n\r\n");
 	if (end_of_hdr == NULL)
-		return;
+		return -1;
+	
+	/* for testing-only */
+	char code_status[] = "200";
+	strcpy(res->response_code, code_status);
+
+	return 0;
+}
+
+static int parse_req_hdr(http_req_raw *r, struct http_req *req)
+{
+	char *method = find_method(r->raw_bytes);
+	if (method == NULL)
+		return -1;
+
+	char *end_of_hdr = strstr(r->raw_bytes, "\r\n\r\n");
+	if (end_of_hdr == NULL)
+		return -1;
 
 	/* TODO:
 	* now it's probably safe to parse the request header,
 	* we need to do something on raw_bytes
 	*/
+
+	/* for testing-only */
+	char *space = strchr(method, ' ');
+	*space = '\0';
+	strcpy(req->method, method);
+
+	return 0;
 }
 
 static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_len)
@@ -222,12 +248,12 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 	*/
 	if (concat_buf(buf, &h->raw_req, buf_len) < 0)
 		return;
-	
-	parse_req_hdr(&h->raw_req);
-}
 
-static void handle_parse_remotebuf(void)
-{
+	struct http_req req;
+	if (parse_req_hdr(&h->raw_req, &req) < 0)
+		return;
+
+	enqueue(&h->req_queue, req);
 }
 
 static struct http_ctx *find_http_ctx(int sockfd)
@@ -259,6 +285,7 @@ static void unwatch_sockfd(struct http_ctx *h)
 	h->raw_req.cap = DEFAULT_RAW_CAP;
 	h->raw_req.len = 0;
 	free(h->raw_req.raw_bytes);
+	free(h->raw_res.raw_bytes);
 }
 
 static void generate_current_time(char *buf)
@@ -276,13 +303,38 @@ static void generate_current_time(char *buf)
 	buf[26 - 2] = '\0';
 }
 
-static void write_log(struct http_ctx *h)
+static void write_log(struct http_ctx *h, struct http_req *req)
 {
 	char human_readable_time[26] = {0};
 	generate_current_time(human_readable_time);
 
-	fprintf(file_log, "[%s] %s:%d\n", human_readable_time, h->ip_addr, h->port_addr);
+	fprintf(file_log, "[%s]|%s:%d|Method: %s|Status: %s\n",
+		human_readable_time,
+		h->ip_addr, h->port_addr,
+		req->method,
+		req->response_code
+	);
 }
+
+static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_len)
+{
+	/* TODO:
+	* what to do when we failed to concat? stop parsing completely?
+	* for now, just make sure the concat operation success before proceed parsing
+	*/
+	if (concat_buf(buf, &h->raw_res, buf_len) < 0)
+		return;
+	
+	struct http_req *req = front(&h->req_queue);
+	if (req == NULL)
+		return;
+	
+	if (parse_res_hdr(&h->raw_res, req) < 0)
+		return;
+
+	write_log(h, req);
+}
+
 
 static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
 {
@@ -389,7 +441,14 @@ ssize_t recvfrom(
 	if (ret < 0) {
 		errno = -ret;
 		ret = -1;
+		return ret;
 	}
+
+	struct http_ctx *h = find_http_ctx(sockfd);
+	if (h == NULL)
+		return ret;
+
+	handle_parse_remotebuf(h, buf, ret);
 
 	return ret;
 }
