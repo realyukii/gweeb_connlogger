@@ -19,6 +19,7 @@ struct http_ctx {
 };
 
 static struct http_ctx *ctx_pool = NULL;
+static size_t current_pool_sz = DEFAULT_POOL_SZ;
 static FILE *file_log = NULL;
 
 static int init(void)
@@ -37,11 +38,25 @@ static int init(void)
 	if (file_log == NULL)
 		return -1;
 
-	ctx_pool = calloc(1, sizeof(struct http_ctx) * DEFAULT_POOL_SZ);
+	ctx_pool = calloc(sizeof(struct http_ctx), DEFAULT_POOL_SZ);
 	if (ctx_pool == NULL)
 		return -1;
 	
 	return 0;
+}
+
+static void push_sockfd(int sockfd)
+{
+	/* TODO:
+	* find out how the pool will be resized when the current size is full
+	*/
+	struct http_ctx *c = ctx_pool;
+	for (size_t i = 0; i < current_pool_sz; i++) {
+		if (c[i].sockfd == 0) {
+			c[i].sockfd = sockfd;
+			break;
+		}
+	}
 }
 
 int socket(int domain, int type, int protocol)
@@ -65,7 +80,7 @@ int socket(int domain, int type, int protocol)
 	}
 
 	if (ctx_pool == NULL && init() == 0) {
-		/* TODO: push sockfd to the pool */
+		push_sockfd(ret);
 	}
 
 	return ret;
