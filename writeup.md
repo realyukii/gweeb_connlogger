@@ -10,8 +10,18 @@
 
 ### glibc
 list of used glibc's function:
+from string:
+- `strcpy`
+from time:
+- `time`
+- `localtime`
+- `asctime_r`
 from stdio:
 - `fopen`
+- `fprintf`
+from arpa/inet:
+- `ntohs`
+- `inet_ntop`
 from stdlib:
 - `getenv`
 - `calloc`
@@ -28,6 +38,9 @@ from arpa/inet:
 - INET6_ADDRSTRLEN
 from errno:
 - errno
+from time:
+- struct tm
+- typedef time_t
 
 ### alur program
 alur programnya saat ini:

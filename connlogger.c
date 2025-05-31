@@ -3,6 +3,8 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <time.h>
 #include <errno.h>
 
 #define DEFAULT_POOL_SZ 100
@@ -76,6 +78,21 @@ static struct http_ctx *find_http_ctx(int sockfd)
 	return h;
 }
 
+static void generate_current_time(char *buf)
+{
+	time_t rawtime;
+	struct tm *timeinfo;
+
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+	/*
+	* the manual says atleast 26 bytes of buf is provided
+	* 24 ascii character + newline + null terminated bytes
+	*/
+	asctime_r(timeinfo, buf);
+	buf[26 - 2] = '\0';
+}
+
 static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
 {
 	struct sockaddr_in *in = (void *)addr;
@@ -93,7 +110,10 @@ static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
 		break;
 	}
 
-	fprintf(file_log, "%s:%d\n", h->ip_addr, h->port_addr);
+	char human_readable_time[26] = {0};
+	generate_current_time(human_readable_time);
+
+	fprintf(file_log, "[%s] %s:%d\n", human_readable_time, h->ip_addr, h->port_addr);
 }
 
 int socket(int domain, int type, int protocol)
@@ -279,7 +299,7 @@ int close(int fd)
 		"syscall"
 		: "=a" (ret)
 		: "a" (__NR_close),	/* %rax */
-		  "D" (fd),		/* %rdi */
+		  "D" (fd)		/* %rdi */
 		: "memory", "rcx", "r11", "cc"
 	);
 
