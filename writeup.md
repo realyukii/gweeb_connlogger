@@ -25,6 +25,7 @@ from arpa/inet:
 - struct sockaddr
 - AF_INET, AF_INET6
 - SOCK_STREAM
+- INET6_ADDRSTRLEN
 from errno:
 - errno
 
