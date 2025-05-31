@@ -71,7 +71,7 @@ static struct http_ctx *find_http_ctx(int sockfd)
 	* from close() and the init is not called yet
 	*/
 	if (ctx_pool == NULL)
-		return;
+		return NULL;
 
 	struct http_ctx *h = NULL;
 	for (size_t i = 0; i < current_pool_sz; i++)
