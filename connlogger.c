@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <time.h>
 #include <errno.h>
 
@@ -264,10 +265,12 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 static struct http_ctx *find_http_ctx(int sockfd)
 {
 	/*
-	* do not perform lookup if the fd is stdin
+	* do not perform lookup if the fd is stdin or stdout
 	* prevent false-positive when dealing with program like nc
+	* save some cpu cycle by stop executing subsequent instruction
+	* and early exit
 	*/
-	if (sockfd == 0)
+	if (sockfd == STDIN_FILENO || sockfd == STDOUT_FILENO)
 		return NULL;
 
 	/*

@@ -41,6 +41,8 @@ from arpa/inet:
 - AF_INET, AF_INET6
 - SOCK_STREAM
 - INET6_ADDRSTRLEN
+from unistd:
+- STDIN_FILENO, STDOUT_FILENO
 from errno:
 - errno
 from time:
