@@ -110,7 +110,7 @@ static int init(void)
 {
 	/* already initialised, skip duplicate init, exit. */
 	if (file_log != NULL && ctx_pool != NULL)
-		return -1;
+		return 0;
 
 	const char *log_file = getenv("GWLOG_PATH");
 
