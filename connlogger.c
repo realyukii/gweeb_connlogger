@@ -102,7 +102,8 @@ static struct http_req *front(struct http_req_queue *q)
 
 /* TODO:
 * figure out how to handle a scenario where for some reason enqueue failed
-* this failure can affect the pairing mechanism between HTTP request and response
+* this failure can affect the pairing mechanism between
+* HTTP request and response
 */
 static int enqueue(struct http_req_queue *q, struct http_req req)
 {
@@ -141,7 +142,10 @@ static int init(void)
 	if (ctx_pool == NULL)
 		return -1;
 
-	pr_debug(DEBUG, "init the pool context and file handle for the first time\n");
+	pr_debug(
+		DEBUG,
+		"init the pool context and file handle for the first time\n"
+	);
 	pr_debug(VERBOSE, "allocated address of context pool: %p\n", ctx_pool);
 	return 0;
 }
@@ -155,7 +159,11 @@ static void push_sockfd(int sockfd)
 			return;
 		
 		ctx_pool = tmp;
-		pr_debug(VERBOSE, "new address is allocated for context pool: %p\n", ctx_pool);
+		pr_debug(
+			VERBOSE,
+			"new address is allocated for context pool: %p\n",
+			ctx_pool
+		);
 	}
 
 	for (size_t i = 0; i < current_pool_sz; i++) {
@@ -166,16 +174,25 @@ static void push_sockfd(int sockfd)
 			* do not push current connection to the pool
 			* if we fail to allocate some memory
 			*/
-			if (c[i].raw_req.raw_bytes != NULL && c[i].raw_res.raw_bytes != NULL) {
-				pr_debug(DEBUG, "new socket file descriptor is registered to the pool: %d\n", sockfd);
-				c[i].sockfd = sockfd;
-				c[i].raw_req.cap = DEFAULT_RAW_CAP;
-				c[i].raw_res.cap = DEFAULT_RAW_CAP;
-				init_queue(&c[i].req_queue);
-				pr_debug(VERBOSE, "init queue for socket file descriptor %d\n", sockfd);
+			if (c[i].raw_req.raw_bytes == NULL && c[i].raw_res.raw_bytes == NULL)
+				break;
 
-				occupied_pool++;
-			}
+			pr_debug(
+				DEBUG,
+				"new socket file descriptor is registered to the pool: %d\n",
+				sockfd
+			);
+			c[i].sockfd = sockfd;
+			c[i].raw_req.cap = DEFAULT_RAW_CAP;
+			c[i].raw_res.cap = DEFAULT_RAW_CAP;
+			init_queue(&c[i].req_queue);
+			pr_debug(
+				VERBOSE,
+				"init queue for socket file descriptor %d\n",
+				sockfd
+			);
+
+			occupied_pool++;
 			break;
 		}
 	}
@@ -223,7 +240,11 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 		memcpy(*b + *append_pos, src, len);
 		*append_pos += len;
 		buf->cap += incoming_len;
-		pr_debug(VERBOSE, "new address is allocated for concated buffer: %p\n", buf->raw_bytes);
+		pr_debug(
+			VERBOSE,
+			"new address is allocated for concated buffer: %p\n",
+			buf->raw_bytes
+		);
 	}
 
 	return 0;
@@ -335,17 +356,29 @@ static struct http_ctx *find_http_ctx(int sockfd)
 
 static void unwatch_sockfd(struct http_ctx *h)
 {
-	pr_debug(DEBUG, "socket file descriptor is unregistered from the pool: %d\n", h->sockfd);
+	pr_debug(
+		DEBUG,
+		"socket file descriptor is unregistered from the pool: %d\n",
+		h->sockfd
+	);
 	h->sockfd = 0;
 
 	h->raw_req.cap = 0;
 	h->raw_req.len = 0;
-	pr_debug(VERBOSE, "raw_req.raw_bytes will be freed: %p\n", h->raw_res.raw_bytes);
+	pr_debug(
+		VERBOSE,
+		"raw_req.raw_bytes will be freed: %p\n",
+		h->raw_res.raw_bytes
+	);
 	free(h->raw_req.raw_bytes);
 
 	h->raw_res.cap = 0;
 	h->raw_res.len = 0;
-	pr_debug(VERBOSE, "raw_res.raw_bytes will be freed: %p\n", h->raw_res.raw_bytes);
+	pr_debug(
+		VERBOSE,
+		"raw_res.raw_bytes will be freed: %p\n",
+		h->raw_res.raw_bytes
+	);
 	free(h->raw_res.raw_bytes);
 
 	occupied_pool--;
