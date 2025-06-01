@@ -187,6 +187,7 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 		*append_pos += len;
 	} else {
 		/* we don't have enough space in the memory, let's resize it */
+		fprintf(stderr, "reallocating address %p from %ld bytes to %ld bytes\n", b, buf->cap, buf->cap + incoming_len);
 		void *tmp = realloc(b, buf->cap + incoming_len);
 		if (tmp == NULL) {
 			/* TODO:
@@ -196,6 +197,7 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 			*/
 			return -1;
 		}
+		fprintf(stderr, "reallocating success\n");
 		b = tmp;
 		memcpy(b + *append_pos, src, len);
 		*append_pos += len;
@@ -304,6 +306,7 @@ static void unwatch_sockfd(struct http_ctx *h)
 
 	h->raw_res.cap = 0;
 	h->raw_res.len = 0;
+	fprintf(stderr, "raw_res.raw_bytes address %p was freed\n", h->raw_res.raw_bytes);
 	free(h->raw_res.raw_bytes);
 
 	occupied_pool--;
