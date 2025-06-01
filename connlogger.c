@@ -7,10 +7,6 @@
 #include <time.h>
 #include <errno.h>
 
-/* TODO:
-* find a way to reallocate the queue if the default size is exceeded.
-* we need to implement a queue that can grow and behave circular
-*/
 #define DEFAULT_REQ_QUEUE_SZ 16
 #define DEFAULT_POOL_SZ 100
 #define DEFAULT_RAW_CAP 1024
