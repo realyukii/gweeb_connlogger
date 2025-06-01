@@ -8,13 +8,23 @@
 #include <time.h>
 #include <errno.h>
 
+#ifndef DEBUG_LEVEL
+#define DEBUG_LEVEL 0
+#endif
+#define VERBOSE 3
+#define DEBUG 2
 #define DEFAULT_REQ_QUEUE_SZ 16
 #define DEFAULT_POOL_SZ 100
 #define DEFAULT_RAW_CAP 1024
 #define MAX_HTTP_METHOD_LEN 8
 #define MAX_HOST_LEN 512
 
-/* TODO: add debug and verbose mode like sir alviro does */
+#define pr_debug(lvl, fmt, ...)				\
+do {							\
+	if (DEBUG_LEVEL >= (lvl)) {			\
+		fprintf(stderr, fmt, ##__VA_ARGS__);	\
+	}						\
+} while (0)
 
 struct http_req_queue {
 	size_t head;
@@ -58,6 +68,11 @@ static FILE *file_log = NULL;
 static void init_queue(struct http_req_queue *q)
 {
 	q->capacity = DEFAULT_REQ_QUEUE_SZ;
+	/* TODO:
+	* handle malloc failure.
+	* what to do when we fail to init queue?
+	* unregister the sockfd from the pool?
+	*/
 	q->req = malloc(DEFAULT_REQ_QUEUE_SZ * sizeof(struct http_req));
 }
 
@@ -125,7 +140,9 @@ static int init(void)
 	ctx_pool = calloc(DEFAULT_POOL_SZ, sizeof(struct http_ctx));
 	if (ctx_pool == NULL)
 		return -1;
-	
+
+	pr_debug(DEBUG, "init the pool context and file handle for the first time\n");
+	pr_debug(VERBOSE, "allocated address of context pool: %p\n", ctx_pool);
 	return 0;
 }
 
@@ -136,7 +153,9 @@ static void push_sockfd(int sockfd)
 		void *tmp = realloc(c, current_pool_sz * 2);
 		if (tmp == NULL)
 			return;
+		
 		ctx_pool = tmp;
+		pr_debug(VERBOSE, "new address is allocated for context pool: %p\n", ctx_pool);
 	}
 
 	for (size_t i = 0; i < current_pool_sz; i++) {
@@ -148,10 +167,12 @@ static void push_sockfd(int sockfd)
 			* if we fail to allocate some memory
 			*/
 			if (c[i].raw_req.raw_bytes != NULL && c[i].raw_res.raw_bytes != NULL) {
+				pr_debug(DEBUG, "new socket file descriptor is registered to the pool: %d\n", sockfd);
 				c[i].sockfd = sockfd;
 				c[i].raw_req.cap = DEFAULT_RAW_CAP;
 				c[i].raw_res.cap = DEFAULT_RAW_CAP;
 				init_queue(&c[i].req_queue);
+				pr_debug(VERBOSE, "init queue for socket file descriptor %d\n", sockfd);
 
 				occupied_pool++;
 			}
@@ -202,6 +223,7 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 		memcpy(*b + *append_pos, src, len);
 		*append_pos += len;
 		buf->cap += incoming_len;
+		pr_debug(VERBOSE, "new address is allocated for concated buffer: %p\n", buf->raw_bytes);
 	}
 
 	return 0;
@@ -209,6 +231,13 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 
 static int parse_res_hdr(http_res_raw *r, struct http_req *res)
 {
+	pr_debug(VERBOSE, "begin parsing response header\n");
+	pr_debug(
+		VERBOSE,
+		"buffer address: %p\nlength: %ld\ncapacity: %ld\n",
+		r->raw_bytes, r->len, r->cap
+	);
+
 	char *http_ver = strstr(r->raw_bytes, "HTTP/1.1");
 	if (http_ver == NULL)
 		return -1;
@@ -226,6 +255,13 @@ static int parse_res_hdr(http_res_raw *r, struct http_req *res)
 
 static int parse_req_hdr(http_req_raw *r, struct http_req *req)
 {
+	pr_debug(VERBOSE, "begin parsing request header\n");
+	pr_debug(
+		VERBOSE,
+		"buffer address: %p\nlength: %ld\ncapacity: %ld\n",
+		r->raw_bytes, r->len, r->cap
+	);
+
 	char *method = find_method(r->raw_bytes);
 	if (method == NULL)
 		return -1;
@@ -261,6 +297,7 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 	if (parse_req_hdr(&h->raw_req, &req) < 0)
 		return;
 
+	pr_debug(VERBOSE, "push processed data to the queue\n");
 	enqueue(&h->req_queue, req);
 }
 
@@ -298,14 +335,17 @@ static struct http_ctx *find_http_ctx(int sockfd)
 
 static void unwatch_sockfd(struct http_ctx *h)
 {
+	pr_debug(DEBUG, "socket file descriptor is unregistered from the pool: %d\n", h->sockfd);
 	h->sockfd = 0;
 
 	h->raw_req.cap = 0;
 	h->raw_req.len = 0;
+	pr_debug(VERBOSE, "raw_req.raw_bytes will be freed: %p\n", h->raw_res.raw_bytes);
 	free(h->raw_req.raw_bytes);
 
 	h->raw_res.cap = 0;
 	h->raw_res.len = 0;
+	pr_debug(VERBOSE, "raw_res.raw_bytes will be freed: %p\n", h->raw_res.raw_bytes);
 	free(h->raw_res.raw_bytes);
 
 	occupied_pool--;
@@ -331,12 +371,18 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 	char human_readable_time[26] = {0};
 	generate_current_time(human_readable_time);
 
-	fprintf(file_log, "[%s]|%s:%d|Method: %s|Status: %s\n",
+	int ret = fprintf(file_log, "[%s]|%s:%d|Method: %s|Status: %s\n",
 		human_readable_time,
 		h->ip_addr, h->port_addr,
 		req->method,
 		req->response_code
 	);
+
+	if (ret < 0) {
+		pr_debug(VERBOSE, "failed to write parsed data to the file\n");
+	} else {
+		pr_debug(VERBOSE, "parsed data successfully written to the file\n");
+	}
 }
 
 static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_len)
@@ -348,11 +394,14 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 	*/
 	if (concat_buf(buf, &h->raw_res, buf_len) < 0)
 		return;
-	
+
+	pr_debug(VERBOSE, "dequeue request...\n");
 	struct http_req *req = front(&h->req_queue);
-	if (req == NULL)
+	if (req == NULL) {
+		pr_debug(VERBOSE, "failed to dequeue request\n");
 		return;
-	
+	}
+
 	if (parse_res_hdr(&h->raw_res, req) < 0)
 		return;
 
@@ -376,6 +425,14 @@ static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
 		h->port_addr = ntohs(in6->sin6_port);
 		break;
 	}
+
+	pr_debug(
+		VERBOSE,
+		"socket file descriptor %d is connected to %s:%d\n",
+		h->sockfd,
+		h->ip_addr,
+		h->port_addr
+	);
 }
 
 int socket(int domain, int type, int protocol)
