@@ -147,6 +147,7 @@ static void push_sockfd(int sockfd)
 			if (c[i].raw_req.raw_bytes != NULL && c[i].raw_res.raw_bytes != NULL) {
 				c[i].sockfd = sockfd;
 				c[i].raw_req.cap = DEFAULT_RAW_CAP;
+				c[i].raw_res.cap = DEFAULT_RAW_CAP;
 				init_queue(&c[i].req_queue);
 
 				occupied_pool++;
@@ -286,10 +287,15 @@ static struct http_ctx *find_http_ctx(int sockfd)
 static void unwatch_sockfd(struct http_ctx *h)
 {
 	h->sockfd = 0;
-	h->raw_req.cap = DEFAULT_RAW_CAP;
+
+	h->raw_req.cap = 0;
 	h->raw_req.len = 0;
 	free(h->raw_req.raw_bytes);
+
+	h->raw_res.cap = 0;
+	h->raw_res.len = 0;
 	free(h->raw_res.raw_bytes);
+
 	occupied_pool--;
 }
 
