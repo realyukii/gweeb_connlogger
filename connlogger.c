@@ -136,7 +136,7 @@ static void push_sockfd(int sockfd)
 		void *tmp = realloc(c, current_pool_sz * 2);
 		if (tmp == NULL)
 			return;
-		c = tmp;
+		ctx_pool = tmp;
 	}
 
 	for (size_t i = 0; i < current_pool_sz; i++) {
