@@ -14,6 +14,8 @@
 #define MAX_HTTP_METHOD_LEN 8
 #define MAX_HOST_LEN 512
 
+/* TODO: add debug and verbose mode like sir alviro does */
+
 struct http_req_queue {
 	size_t head;
 	size_t tail;
