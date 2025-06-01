@@ -144,7 +144,7 @@ static void push_sockfd(int sockfd)
 			* do not push current connection to the pool
 			* if we fail to allocate some memory
 			*/
-			if (c[i].raw_req.raw_bytes != NULL && c[i].raw_res.raw_bytes) {
+			if (c[i].raw_req.raw_bytes != NULL && c[i].raw_res.raw_bytes != NULL) {
 				c[i].sockfd = sockfd;
 				c[i].raw_req.cap = DEFAULT_RAW_CAP;
 				init_queue(&c[i].req_queue);
