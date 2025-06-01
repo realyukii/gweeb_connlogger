@@ -52,6 +52,7 @@ struct http_ctx {
 };
 
 static size_t current_pool_sz = DEFAULT_POOL_SZ;
+static size_t occupied_pool = 0;
 static struct http_ctx *ctx_pool = NULL;
 static FILE *file_log = NULL;
 
@@ -131,10 +132,14 @@ static int init(void)
 
 static void push_sockfd(int sockfd)
 {
-	/* TODO:
-	* find out how the pool will be resized when the current pool size is full
-	*/
 	struct http_ctx *c = ctx_pool;
+	if (occupied_pool == current_pool_sz) {
+		void *tmp = realloc(c, current_pool_sz * 2);
+		if (tmp == NULL)
+			return;
+		c = tmp;
+	}
+
 	for (size_t i = 0; i < current_pool_sz; i++) {
 		if (c[i].sockfd == 0) {
 			c[i].raw_req.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
@@ -147,6 +152,8 @@ static void push_sockfd(int sockfd)
 				c[i].sockfd = sockfd;
 				c[i].raw_req.cap = DEFAULT_RAW_CAP;
 				init_queue(&c[i].req_queue);
+
+				occupied_pool++;
 			}
 			break;
 		}
@@ -286,6 +293,7 @@ static void unwatch_sockfd(struct http_ctx *h)
 	h->raw_req.len = 0;
 	free(h->raw_req.raw_bytes);
 	free(h->raw_res.raw_bytes);
+	occupied_pool--;
 }
 
 static void generate_current_time(char *buf)
