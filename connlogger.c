@@ -247,7 +247,8 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 {
 	/* TODO:
 	* what to do when we failed to concat? stop parsing completely?
-	* for now, just make sure the concat operation success before proceed parsing
+	* for now, just make sure the concat operation success before proceed-
+	* executing subsequent instruction
 	*/
 	if (concat_buf(buf, &h->raw_req, buf_len) < 0)
 		return;
@@ -324,7 +325,8 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 {
 	/* TODO:
 	* what to do when we failed to concat? stop parsing completely?
-	* for now, just make sure the concat operation success before proceed parsing
+	* for now, just make sure the concat operation success before proceed-
+	* executing subsequent instruction
 	*/
 	if (concat_buf(buf, &h->raw_res, buf_len) < 0)
 		return;
@@ -520,11 +522,14 @@ ssize_t read(int fd, void *buf, size_t count)
 	if (ret < 0) {
 		errno = -ret;
 		ret = -1;
+		return ret;
 	}
+	
+	struct http_ctx *h = find_http_ctx(fd);
+	if (h == NULL)
+		return ret;
 
-	/* TODO:
-	* do the same like recvfrom does
-	*/
+	handle_parse_remotebuf(h, buf, ret);
 
 	return ret;
 }
@@ -546,11 +551,14 @@ ssize_t write(int fd, const void *buf, size_t count)
 	if (ret < 0) {
 		errno = -ret;
 		ret = -1;
+		return ret;
 	}
 
-	/* TODO:
-	* do the same like sendto does
-	*/
+	struct http_ctx *h = find_http_ctx(fd);
+	if (h == NULL)
+		return ret;
+
+	handle_parse_localbuf(h, buf, ret);
 
 	return ret;
 }
