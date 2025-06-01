@@ -264,6 +264,13 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 static struct http_ctx *find_http_ctx(int sockfd)
 {
 	/*
+	* do not perform lookup if the fd is stdin
+	* prevent false-positive when dealing with program like nc
+	*/
+	if (sockfd == 0)
+		return NULL;
+
+	/*
 	* we are not allowed to assume ctx_pool to always be valid
 	* one of the concrete example is when find_http_ctx is called
 	* from close() and the init is not called yet
@@ -586,12 +593,9 @@ int close(int fd)
 		ret = -1;
 	}
 
-	/* exclude stdin file descriptor, just in case... */
-	if (fd != 0) {
-		struct http_ctx *h = find_http_ctx(fd);
-		if (h != NULL)
-			unwatch_sockfd(h);
-	}
+	struct http_ctx *h = find_http_ctx(fd);
+	if (h != NULL)
+		unwatch_sockfd(h);
 
 	return ret;
 }
