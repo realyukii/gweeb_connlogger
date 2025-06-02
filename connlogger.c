@@ -43,7 +43,6 @@ struct http_hdr {
 	char *next_line;
 };
 
-/* TODO: find a way to manage uri in dynamic memory */
 struct http_req {
 	char method[MAX_HTTP_METHOD_LEN];
 	char host[MAX_HOST_LEN];
