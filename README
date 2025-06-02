@@ -12,4 +12,7 @@ topic I learned on part 2:
 - queue data structure
 - edge cases when handling HTTP connection
 
+edge cases:
+- log the URI string up to 300k according to https://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers
+
 Compiled and tested on: Linux x86_64 glibc.

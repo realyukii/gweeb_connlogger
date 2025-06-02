@@ -19,6 +19,7 @@
 #define DEFAULT_RAW_CAP 1024
 #define MAX_HTTP_METHOD_LEN 8
 #define MAX_HOST_LEN 512
+#define MAX_INSANE_URI_LENGTH 300000
 
 #define pr_debug(lvl, fmt, ...)				\
 do {							\
@@ -375,6 +376,9 @@ next:
 	end_uri += 1;
 
 	size_t uri_len = strlen(uri);
+	if (uri_len > MAX_INSANE_URI_LENGTH)
+		return;
+
 	req.uri = malloc(uri_len);
 	/*
 	* abort the subsequent operation when we fail to allocate
