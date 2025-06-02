@@ -174,8 +174,15 @@ static void push_sockfd(int sockfd)
 			* do not push current connection to the pool
 			* if we fail to allocate some memory
 			*/
-			if (c[i].raw_req.raw_bytes == NULL && c[i].raw_res.raw_bytes == NULL)
+			if (c[i].raw_req.raw_bytes == NULL || c[i].raw_res.raw_bytes == NULL) {
+				void *to_free = (c[i].raw_req.raw_bytes != NULL)
+					? c[i].raw_req.raw_bytes
+					: c[i].raw_res.raw_bytes;
+				
+				/* if both null, it is still safe to call free */
+				free(to_free);
 				break;
+			}
 
 			pr_debug(
 				DEBUG,
