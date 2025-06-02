@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <ctype.h>
 #include <sys/syscall.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -32,6 +33,13 @@ struct http_req_queue {
 	size_t capacity;
 	size_t occupied;
 	struct http_req *req;
+};
+
+struct http_hdr {
+	char *key;
+	char *value;
+	char *line;
+	char *next_line;
 };
 
 /* TODO: find a way to manage uri in dynamic memory */
@@ -281,52 +289,122 @@ static int parse_res_hdr(http_res_raw *r, struct http_req *res)
 	return 0;
 }
 
-static int parse_req_hdr(http_req_raw *r, struct http_req *req)
+static void advance(struct concated_buf *ptr, size_t len)
 {
-	pr_debug(VERBOSE, "begin parsing request header\n");
-	pr_debug(
-		VERBOSE,
-		"buffer address: %p\nlength: %ld\ncapacity: %ld\n",
-		r->raw_bytes, r->len, r->cap
-	);
+	if (len > ptr->len)
+		ptr->len = 0;
+	else
+		ptr->len -= len;
 
-	char *method = find_method(r->raw_bytes);
-	if (method == NULL)
+	if (ptr->len > 0)
+		memmove(ptr->raw_bytes, ptr->raw_bytes + len, ptr->len);
+}
+
+static void strtolower(char *str)
+{
+	for (char *p = str; *p; p++)
+		*p = tolower(*p);
+}
+
+static int parse_req_hdr(struct http_hdr *req_header)
+{
+	/* iterate over the http header */
+	req_header->next_line = strstr(req_header->line, "\r\n");
+	if (req_header->next_line == NULL)
 		return -1;
-
-	char *end_of_hdr = strstr(r->raw_bytes, "\r\n\r\n");
-	if (end_of_hdr == NULL)
+	req_header->key = req_header->line;
+	req_header->value = strchr(req_header->line, ':');
+	if (req_header->value == NULL)
 		return -1;
+	*req_header->value = '\0';
+	req_header->value += 1;
 
-	/* TODO:
-	* now it's probably safe to parse the request header,
-	* we need to do something on raw_bytes
-	*/
+	*req_header->next_line = '\0';
+	req_header->next_line += 2;
+	req_header->line = req_header->next_line;
 
-	/* for testing-only */
-	char *space = strchr(method, ' ');
-	*space = '\0';
-	strcpy(req->method, method);
+	/* ignore any leading space */
+	while (*req_header->value == ' ')
+		req_header->value++;
 
+	strtolower(req_header->key);
 	return 0;
 }
 
 static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_len)
 {
+	http_req_raw *r = &h->raw_req;
 	/* TODO:
 	* what to do when we failed to concat? stop parsing completely?
 	* for now, just make sure the concat operation success before proceed-
 	* executing subsequent instruction
 	*/
-	if (concat_buf(buf, &h->raw_req, buf_len) < 0)
+	if (concat_buf(buf, r, buf_len) < 0)
 		return;
 
 	struct http_req req;
-	if (parse_req_hdr(&h->raw_req, &req) < 0)
+next:
+	/* TODO:
+	* how to make sure we can handle malformed HTTP request that
+	* did not follow the protocol standard?
+	* it is still possible that the find_method return false-positive?
+	*/
+	char *method = find_method(r->raw_bytes);
+	if (method == NULL)
 		return;
+
+	char *end_of_hdr = strstr(r->raw_bytes, "\r\n\r\n");
+	if (end_of_hdr == NULL)
+		return;
+	end_of_hdr += 4;
+
+	pr_debug(VERBOSE, "begin parsing HTTP request\n");
+	pr_debug(
+		VERBOSE,
+		"buffer address: %p\nlength: %ld\ncapacity: %ld\n",
+		r->raw_bytes, r->len, r->cap
+	);
+	
+	char *uri = strchr(r->raw_bytes, ' ');
+	*uri = '\0';
+	strcpy(req.method, method);
+	uri += 1;
+
+	char *end_uri = strstr(uri, " HTTP/1.") ;
+	*end_uri = '\0';
+	end_uri += 1;
+
+	size_t uri_len = strlen(uri);
+	req.uri = malloc(uri_len);
+	/*
+	* abort the subsequent operation when we fail to allocate
+	* dynamic memory for uri
+	*/
+	if (req.uri == NULL)
+		return;
+	strcpy(req.uri, uri);
+	char *end_reqline = strstr(end_uri, "\r\n");
+	char *req_header = end_reqline + 2;
+
+	struct http_hdr hdr = {0};
+	hdr.line = req_header;
+	while (1) {
+		if (parse_req_hdr(&hdr) < 0)
+			return;
+
+		if (strcmp(hdr.key, "host") == 0) {
+			strcpy(req.host, hdr.value);
+		}
+
+		if (hdr.line + 2 == end_of_hdr)
+			break;
+	}
 
 	pr_debug(VERBOSE, "push processed data to the queue\n");
 	enqueue(&h->req_queue, req);
+	advance(r, end_of_hdr - method);
+	if (r->len > 0)
+		goto next;
 }
 
 static struct http_ctx *find_http_ctx(int sockfd)
@@ -419,6 +497,8 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 		req->uri,
 		req->response_code
 	);
+	pr_debug(VERBOSE, "URI will be freed: %p\n", req->uri);
+	free(req->uri);
 
 	if (ret < 0) {
 		pr_debug(VERBOSE, "failed to write parsed data to the file\n");
