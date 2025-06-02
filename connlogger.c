@@ -34,12 +34,12 @@ struct http_req_queue {
 	struct http_req *req;
 };
 
-/* TODO: find a way to manage path in dynamic memory */
+/* TODO: find a way to manage uri in dynamic memory */
 struct http_req {
 	char method[MAX_HTTP_METHOD_LEN];
 	char host[MAX_HOST_LEN];
 	char response_code[4];
-	char *path;
+	char *uri;
 };
 
 struct concated_buf {
@@ -404,10 +404,12 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 	char human_readable_time[26] = {0};
 	generate_current_time(human_readable_time);
 
-	int ret = fprintf(file_log, "[%s]|%s:%d|Method: %s|Status: %s\n",
+	int ret = fprintf(file_log, "[%s]|%s:%d|Host: %s|Method: %s|URI %s|Status: %s\n",
 		human_readable_time,
 		h->ip_addr, h->port_addr,
+		req->host,
 		req->method,
+		req->uri,
 		req->response_code
 	);
 
