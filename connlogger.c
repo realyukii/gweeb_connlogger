@@ -372,8 +372,55 @@ static int parse_req_hdr(struct http_hdr *req_header)
 	return 0;
 }
 
+static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr,
+	char *end_of_hdr, char *method, http_req_raw *r, struct http_req *req)
+{
+	/* assume it's malformed HTTP header if we can't parse it */
+	if (parse_req_hdr(hdr) < 0) {
+		return -EINVAL;
+	}
+	pr_debug(
+		VERBOSE,
+		"parsing request header: %s\n",
+		hdr->key
+	);
+
+	if (strcmp(hdr->key, "host") == 0) {
+		strcpy(req->host, hdr->value);
+	} else if (strcmp(hdr->key, "content-length") == 0) {
+		/*
+		* if it have content-length but also chunked,
+		* it's malformed HTTP request
+		*/
+		if (h->is_chunked)
+			return -EINVAL;
+		h->content_length = atoll(hdr->value);
+	} else if (strcmp(hdr->key, "transfer-encoding") == 0) {
+		/*
+		* if it's chunked and have content-length,
+		* it's malformed HTTP request
+		*/
+		if (h->content_length > 0)
+			return -EINVAL;
+		if (strstr(hdr->value, "chunked") != NULL)
+			h->is_chunked = true;
+	}
+
+	if (hdr->line + 2 != end_of_hdr)
+		return -EAGAIN;
+
+	if (h->is_chunked || h->content_length > 0)
+		h->state = HTTP_REQ_BODY;
+	pr_debug(VERBOSE, "push processed data to the queue\n");
+	if (enqueue(&h->req_queue, *req) < 0)
+		pr_debug(VERBOSE, "warning: failed to push data to queue\n");
+	advance(r, end_of_hdr - method);
+	return 0;
+}
+
 static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_len)
 {
+	int ret;
 	http_req_raw *r = &h->raw_req;
 	/* TODO:
 	* what to do when we failed to concat? stop parsing completely?
@@ -442,49 +489,13 @@ next:
 	while (true) {
 		switch (h->state) {
 		case HTTP_REQ_HDR:
-			if (parse_req_hdr(&hdr) < 0)
+			ret = process_req_hdr(h, &hdr, end_of_hdr, method, r, &req);
+			if (ret == -EINVAL) {
+				unwatch_sockfd(h);
 				return;
-			pr_debug(
-				VERBOSE,
-				"parsing request header: %s\n",
-				hdr.key
-			);
-
-			if (strcmp(hdr.key, "host") == 0) {
-				strcpy(req.host, hdr.value);
-			} else if (strcmp(hdr.key, "content-length") == 0) {
-				/*
-				* if it have content-length but also chunked,
-				* it's malformed HTTP request
-				*/
-				if (h->is_chunked) {
-					unwatch_sockfd(h);
-					return;
-				}
-				h->content_length = atoll(hdr.value);
-			} else if (strcmp(hdr.key, "transfer-encoding") == 0) {
-				/*
-				* if it's chunked and have content-length,
-				* it's malformed HTTP request
-				*/
-				if (h->content_length > 0) {
-					unwatch_sockfd(h);
-					return;
-				}
-				if (strstr(hdr.value, "chunked") != NULL)
-					h->is_chunked = true;
-			}
-
-			if (hdr.line + 2 == end_of_hdr) {
-				if (h->is_chunked || h->content_length > 0)
-					h->state = HTTP_REQ_BODY;
-				pr_debug(VERBOSE, "push processed data to the queue\n");
-				if (enqueue(&h->req_queue, req) < 0)
-					pr_debug(VERBOSE, "warning: failed to push data to queue\n");
-				advance(r, end_of_hdr - method);
-				goto exit_loop;
-			}
-			break;
+			} else if (ret == -EAGAIN)
+				continue;
+			goto exit_loop;
 		case HTTP_REQ_BODY:
 			pr_debug(VERBOSE, "parsing request body\n");
 			if (h->is_chunked) {
