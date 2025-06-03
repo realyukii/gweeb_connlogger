@@ -218,8 +218,8 @@ static void push_sockfd(int sockfd)
 static char *find_method(const char *buf)
 {
 	const char *http_methods[] = {
-		"GET /", "POST /", "HEAD /", "PATCH /", "PUT /",
-		"DELETE /", "OPTIONS /", "CONNECT /", "TRACE /", NULL
+		"GET", "POST", "HEAD", "PATCH", "PUT",
+		"DELETE", "OPTIONS", "CONNECT", "TRACE", NULL
 	};
 	const char **ptr = http_methods;
 	char *method_ptr = NULL;
@@ -364,23 +364,22 @@ next:
 	char *end_of_hdr = NULL;
 	char *method = NULL;
 	if (h->state == HTTP_REQ_HDR) {
+		char *uri = strchr(r->raw_bytes, ' ');
+		*uri = '\0';
+		uri += 1;
+
 		/* make sure it's a HTTP request */
 		method = find_method(r->raw_bytes);
-		asm volatile("int3");
 		if (method == NULL)
 			return;
 
+		strcpy(req.method, method);
+
 		/* some bytes haven't departed yet, wait until it completed */
-		end_of_hdr = strstr(r->raw_bytes, "\r\n\r\n");
+		end_of_hdr = strstr(uri, "\r\n\r\n");
 		if (end_of_hdr == NULL)
 			return;
 		end_of_hdr += 4;
-
-		char *uri = strchr(r->raw_bytes, ' ');
-		*uri = '\0';
-		asm volatile("int3");
-		strcpy(req.method, method);
-		uri += 1;
 
 		char *end_uri = strstr(uri, " HTTP/1.");
 		*end_uri = '\0';
