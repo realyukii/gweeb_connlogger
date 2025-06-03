@@ -465,7 +465,7 @@ next:
 				if (chunk_sz == 0) {
 					advance(r, ascii_hex_len + 2 + chunk_sz + 2);
 					h->state = HTTP_REQ_HDR;
-					return;
+					goto check_len;
 				}
 
 				/* some bytes haven't departed yet. */
@@ -493,7 +493,7 @@ next:
 				* to send multiple HTTP request
 				*/
 				h->state = HTTP_REQ_HDR;
-				return;
+				goto check_len;
 			}
 		}
 	}
@@ -503,6 +503,7 @@ exit_loop:
 	if (enqueue(&h->req_queue, req) < 0)
 		pr_debug(VERBOSE, "warning: failed to push data to queue\n");
 	advance(r, end_of_hdr - method);
+check_len:
 	if (r->len > 0)
 		goto next;
 }
