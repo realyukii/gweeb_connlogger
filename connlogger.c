@@ -571,6 +571,14 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 
 static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_len)
 {
+	if (buf_len == 0) {
+		/* TODO:
+		* the server send an EOF? does it mean connection will be closed
+		* and no longer data will be sent? parsing is done?
+		*/
+		return;
+	}
+
 	/* TODO:
 	* what to do when we failed to concat? stop parsing completely?
 	* for now, just make sure the concat operation success before proceed-
