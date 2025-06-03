@@ -54,8 +54,6 @@ struct http_req {
 	char host[MAX_HOST_LEN];
 	char response_code[4];
 	char *uri;
-	size_t content_length;
-	bool is_chunked;
 };
 
 struct concated_buf {
@@ -75,6 +73,8 @@ struct http_ctx {
 	http_req_raw raw_req;
 	http_res_raw raw_res;
 	parser_state state;
+	size_t content_length;
+	bool is_chunked;
 };
 
 static size_t current_pool_sz = DEFAULT_POOL_SZ;
@@ -426,37 +426,55 @@ next:
 				* if it have content-length but also chunked,
 				* it's malformed HTTP request
 				*/
-				if (req.is_chunked)
+				if (h->is_chunked)
 					return;
-				req.content_length = atoll(hdr.value);
+				h->content_length = atoll(hdr.value);
 			} else if (strcmp(hdr.key, "transfer-encoding") == 0) {
 				/*
 				* if it's chunked and have content-length,
 				* it's malformed HTTP request
 				*/
-				if (req.content_length > 0)
+				if (h->content_length > 0)
 					return;
 				if (strstr(hdr.value, "chunked") != NULL)
-					req.is_chunked = true;
+					h->is_chunked = true;
 			}
 
 			if (hdr.line + 2 == end_of_hdr) {
-				if (req.is_chunked || req.content_length > 0)
+				if (h->is_chunked || h->content_length > 0)
 					h->state = HTTP_REQ_BODY;
 				goto exit_loop;
 			}
 			break;
 		case HTTP_REQ_BODY:
 			pr_debug(VERBOSE, "parsing request body\n");
-			if (req.is_chunked) {
-				/* TODO:
-				* handle transfer-encoding chunked
+			if (h->is_chunked) {
+				char *separator = strstr(r->raw_bytes, "\r\n");
+				/*
+				* some bytes haven't arrived yet, short-send?
+				* wait until it completed
+				* or maybe it's a malformed http request
 				*/
+				if (separator == NULL)
+					return;
+				*separator = '\0';
+				int len = strlen(r->raw_bytes);
+				size_t chunk_sz = strtoull(r->raw_bytes, NULL, 16);
+				
+				size_t end_body = separator + 2 + chunk_sz;
+				strncmp(end_body, "\r\n", 2);
+
+				/* some bytes haven't arrived yet. */
+				if (r->len - (len + 2) < chunk_sz)
+					return;
+				
+				advance(r, len + 2);
+				asm volatile("int3");
 			} else {
 				/* some bytes haven't departed yet */
-				if (r->len < req.content_length)
+				if (r->len < h->content_length)
 					return;
-				advance(r, req.content_length);
+				advance(r, h->content_length);
 			}
 			return;
 		}
