@@ -32,6 +32,8 @@ from stdlib:
 - `free`
 
 list of used glibc's defined constant and custom data type:
+from stdbool:
+- bool, true and false typedef
 from stdio:
 - typedef FILE
 from sys/syscall

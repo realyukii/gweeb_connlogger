@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
@@ -36,6 +37,12 @@ struct http_req_queue {
 	struct http_req *req;
 };
 
+typedef enum {
+	HTTP_REQ_HDR = 0,
+	HTTP_REQ_BODY,
+	HTTP_REQ_BODY_DONE
+} state;
+
 struct http_hdr {
 	char *key;
 	char *value;
@@ -48,6 +55,9 @@ struct http_req {
 	char host[MAX_HOST_LEN];
 	char response_code[4];
 	char *uri;
+	long long content_length;
+	bool is_chunked;
+	state state;
 };
 
 struct concated_buf {
@@ -394,11 +404,39 @@ next:
 	struct http_hdr hdr = {0};
 	hdr.line = req_header;
 	while (1) {
-		if (parse_req_hdr(&hdr) < 0)
-			return;
+		switch (req.state) {
+		case HTTP_REQ_HDR:
+			if (parse_req_hdr(&hdr) < 0)
+				return;
 
-		if (strcmp(hdr.key, "host") == 0) {
-			strcpy(req.host, hdr.value);
+			if (strcmp(hdr.key, "host") == 0) {
+				strcpy(req.host, hdr.value);
+			} else if (strcmp(hdr.key, "content-length")) {
+				/*
+				* if it have content-length but also chunked,
+				* it's malformed HTTP request
+				*/
+				if (req.is_chunked)
+					return;
+				req.content_length = atoll(hdr.value);
+			} else if (strcmp(hdr.key, "transfer-encoding")) {
+				/*
+				* if it's chunked and have content-length,
+				* it's malformed HTTP request
+				*/
+				if (req.content_length > 0)
+					return;
+				if (strstr(hdr.value, "chunked") != NULL)
+					req.is_chunked = true;
+			}
+			break;
+		case HTTP_REQ_BODY:
+			/* TODO */
+			parse_body();
+			break;
+		
+		default:
+			break;
 		}
 
 		if (hdr.line + 2 == end_of_hdr)
