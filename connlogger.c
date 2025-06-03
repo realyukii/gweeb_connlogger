@@ -427,16 +427,20 @@ next:
 				* if it have content-length but also chunked,
 				* it's malformed HTTP request
 				*/
-				if (h->is_chunked)
+				if (h->is_chunked) {
+					unwatch_sockfd(h);
 					return;
+				}
 				h->content_length = atoll(hdr.value);
 			} else if (strcmp(hdr.key, "transfer-encoding") == 0) {
 				/*
 				* if it's chunked and have content-length,
 				* it's malformed HTTP request
 				*/
-				if (h->content_length > 0)
+				if (h->content_length > 0) {
+					unwatch_sockfd(h);
 					return;
+				}
 				if (strstr(hdr.value, "chunked") != NULL)
 					h->is_chunked = true;
 			}
