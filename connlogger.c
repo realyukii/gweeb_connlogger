@@ -366,6 +366,7 @@ next:
 	if (h->state == HTTP_REQ_HDR) {
 		/* make sure it's a HTTP request */
 		method = find_method(r->raw_bytes);
+		asm volatile("int3");
 		if (method == NULL)
 			return;
 
@@ -377,6 +378,7 @@ next:
 
 		char *uri = strchr(r->raw_bytes, ' ');
 		*uri = '\0';
+		asm volatile("int3");
 		strcpy(req.method, method);
 		uri += 1;
 
