@@ -108,11 +108,6 @@ static struct http_req *front(struct http_req_queue *q)
 	return req;
 }
 
-/* TODO:
-* figure out how to handle a scenario where for some reason enqueue failed
-* this failure can affect the pairing mechanism between
-* HTTP request and response
-*/
 static int enqueue(struct http_req_queue *q, struct http_req req)
 {
 	/* if the queue is full, re-size the default size twice */
@@ -404,7 +399,8 @@ next:
 	}
 
 	pr_debug(VERBOSE, "push processed data to the queue\n");
-	enqueue(&h->req_queue, req);
+	if (enqueue(&h->req_queue, req) < 0)
+		pr_debug(VERBOSE, "warning: failed to push data to queue");
 	advance(r, end_of_hdr - method);
 	if (r->len > 0)
 		goto next;
