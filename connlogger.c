@@ -215,6 +215,36 @@ static void push_sockfd(int sockfd)
 	}
 }
 
+static void unwatch_sockfd(struct http_ctx *h)
+{
+	pr_debug(
+		DEBUG,
+		"socket file descriptor is unregistered from the pool: %d\n",
+		h->sockfd
+	);
+	h->sockfd = 0;
+
+	h->raw_req.cap = 0;
+	h->raw_req.len = 0;
+	pr_debug(
+		VERBOSE,
+		"raw_req.raw_bytes will be freed: %p\n",
+		h->raw_res.raw_bytes
+	);
+	free(h->raw_req.raw_bytes);
+
+	h->raw_res.cap = 0;
+	h->raw_res.len = 0;
+	pr_debug(
+		VERBOSE,
+		"raw_res.raw_bytes will be freed: %p\n",
+		h->raw_res.raw_bytes
+	);
+	free(h->raw_res.raw_bytes);
+
+	occupied_pool--;
+}
+
 static char *find_method(const char *buf)
 {
 	const char *http_methods[] = {
@@ -541,36 +571,6 @@ static struct http_ctx *find_http_ctx(int sockfd)
 	}
 	
 	return h;
-}
-
-static void unwatch_sockfd(struct http_ctx *h)
-{
-	pr_debug(
-		DEBUG,
-		"socket file descriptor is unregistered from the pool: %d\n",
-		h->sockfd
-	);
-	h->sockfd = 0;
-
-	h->raw_req.cap = 0;
-	h->raw_req.len = 0;
-	pr_debug(
-		VERBOSE,
-		"raw_req.raw_bytes will be freed: %p\n",
-		h->raw_res.raw_bytes
-	);
-	free(h->raw_req.raw_bytes);
-
-	h->raw_res.cap = 0;
-	h->raw_res.len = 0;
-	pr_debug(
-		VERBOSE,
-		"raw_res.raw_bytes will be freed: %p\n",
-		h->raw_res.raw_bytes
-	);
-	free(h->raw_res.raw_bytes);
-
-	occupied_pool--;
 }
 
 static void generate_current_time(char *buf)
