@@ -611,9 +611,9 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_len)
 {
 	if (buf_len == 0) {
-		/* TODO:
-		* the server send an EOF? does it mean connection will be closed
-		* and no longer data will be sent? parsing is done?
+		/*
+		* the server send an EOF, we can assume the connection
+		* will be closed and data will no longer be sent, stop parsing.
 		*/
 		return;
 	}
