@@ -418,6 +418,57 @@ static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr,
 	return 0;
 }
 
+static int process_req_body(struct http_ctx *h, http_req_raw *r)
+{
+	if (h->is_chunked) {
+		char *separator = strstr(r->raw_bytes, "\r\n");
+		/*
+		* some bytes haven't departed yet, short-send?
+		* wait until it completed
+		* or maybe it's a malformed http request
+		*/
+		if (separator == NULL)
+			return -EINVAL;
+		*separator = '\0';
+		int ascii_hex_len = strlen(r->raw_bytes);
+		size_t chunk_sz = strtoull(r->raw_bytes, NULL, 16);
+		
+		if (chunk_sz == 0) {
+			advance(r, ascii_hex_len + 2 + chunk_sz + 2);
+			h->state = HTTP_REQ_HDR;
+			return 0;
+		}
+
+		/* some bytes haven't departed yet. */
+		if (r->len - (ascii_hex_len + 4) < chunk_sz)
+			return -EINVAL;
+
+		/*
+		* shift the buffer and check for the next chunk
+		* in the newly shifted buffer if any.
+		*/
+		advance(r, ascii_hex_len + 2 + chunk_sz + 2);
+		return -EAGAIN;
+	} else {
+		/* some bytes haven't departed yet */
+		if (r->len < h->content_length)
+			return -EINVAL;
+		advance(r, h->content_length);
+		
+		/*
+		* completed body.
+		* after fully receive body content,
+		* try to lookup for another header if any.
+		* 
+		* handle scenario like HTTP pipeline or
+		* keep-alive that re-using existing socket
+		* to send multiple HTTP request
+		*/
+		h->state = HTTP_REQ_HDR;
+		return 0;
+	}
+}
+
 static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_len)
 {
 	int ret;
@@ -498,52 +549,12 @@ next:
 			goto exit_loop;
 		case HTTP_REQ_BODY:
 			pr_debug(VERBOSE, "parsing request body\n");
-			if (h->is_chunked) {
-				char *separator = strstr(r->raw_bytes, "\r\n");
-				/*
-				* some bytes haven't departed yet, short-send?
-				* wait until it completed
-				* or maybe it's a malformed http request
-				*/
-				if (separator == NULL)
-					return;
-				*separator = '\0';
-				int ascii_hex_len = strlen(r->raw_bytes);
-				size_t chunk_sz = strtoull(r->raw_bytes, NULL, 16);
-				
-				if (chunk_sz == 0) {
-					advance(r, ascii_hex_len + 2 + chunk_sz + 2);
-					h->state = HTTP_REQ_HDR;
-					goto exit_loop;
-				}
-
-				/* some bytes haven't departed yet. */
-				if (r->len - (ascii_hex_len + 4) < chunk_sz)
-					return;
-				
-				/*
-				* shift the buffer and check for the next chunk
-				* in the newly shifted buffer if any.
-				*/
-				advance(r, ascii_hex_len + 2 + chunk_sz + 2);
-			} else {
-				/* some bytes haven't departed yet */
-				if (r->len < h->content_length)
-					return;
-				advance(r, h->content_length);
-				
-				/*
-				* completed body.
-				* after fully receive body content,
-				* try to lookup for another header if any.
-				* 
-				* handle scenario like HTTP pipeline or
-				* keep-alive that re-using existing socket
-				* to send multiple HTTP request
-				*/
-				h->state = HTTP_REQ_HDR;
-				goto exit_loop;
-			}
+			ret = process_req_body(h, r);
+			if (ret == -EINVAL)
+				return;
+			else if (ret == -EAGAIN)
+				continue;
+			goto exit_loop;
 		}
 	}
 
