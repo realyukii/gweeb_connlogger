@@ -338,6 +338,50 @@ static void strtolower(char *str)
 		*p = tolower(*p);
 }
 
+static int parse_req_line(char *method, char *end_of_hdr, 
+		struct http_hdr *hdr, http_req_raw *r, struct http_req *req)
+{
+	char *uri = strchr(r->raw_bytes, ' ');
+	*uri = '\0';
+	uri += 1;
+
+	/* make sure it's a HTTP request */
+	method = find_method(r->raw_bytes);
+	if (method == NULL)
+		return -EINVAL;
+
+	strcpy(req->method, method);
+
+	/* some bytes haven't departed yet, wait until it completed */
+	end_of_hdr = strstr(uri, "\r\n\r\n");
+	if (end_of_hdr == NULL)
+		return -EAGAIN;
+	end_of_hdr += 4;
+
+	char *end_uri = strstr(uri, " HTTP/1.");
+	*end_uri = '\0';
+	end_uri += 1;
+
+	size_t uri_len = strlen(uri);
+	if (uri_len > MAX_INSANE_URI_LENGTH)
+		return -EINVAL;
+
+	req->uri = malloc(uri_len);
+	/*
+	* abort the subsequent operation when we fail to allocate
+	* dynamic memory for uri
+	*/
+	if (req->uri == NULL)
+		return -EINVAL;
+	strcpy(req->uri, uri);
+
+	char *end_reqline = strstr(end_uri, "\r\n");
+	char *req_header = end_reqline + 2;
+	hdr->line = req_header;
+
+	return 0;
+}
+
 static int parse_req_hdr(struct http_hdr *req_header)
 {
 	/* iterate over the http header */
@@ -492,42 +536,12 @@ next:
 	char *end_of_hdr = NULL;
 	char *method = NULL;
 	if (h->state == HTTP_REQ_HDR) {
-		char *uri = strchr(r->raw_bytes, ' ');
-		*uri = '\0';
-		uri += 1;
-
-		/* make sure it's a HTTP request */
-		method = find_method(r->raw_bytes);
-		if (method == NULL)
+		ret = parse_req_line(method, end_of_hdr, &hdr, r, &req);
+		if (ret == -EINVAL) {
+			unwatch_sockfd(h);
 			return;
-
-		strcpy(req.method, method);
-
-		/* some bytes haven't departed yet, wait until it completed */
-		end_of_hdr = strstr(uri, "\r\n\r\n");
-		if (end_of_hdr == NULL)
+		} else if (ret == -EAGAIN)
 			return;
-		end_of_hdr += 4;
-
-		char *end_uri = strstr(uri, " HTTP/1.");
-		*end_uri = '\0';
-		end_uri += 1;
-
-		size_t uri_len = strlen(uri);
-		if (uri_len > MAX_INSANE_URI_LENGTH)
-			return;
-
-		req.uri = malloc(uri_len);
-		/*
-		* abort the subsequent operation when we fail to allocate
-		* dynamic memory for uri
-		*/
-		if (req.uri == NULL)
-			return;
-		strcpy(req.uri, uri);
-		char *end_reqline = strstr(end_uri, "\r\n");
-		char *req_header = end_reqline + 2;
-		hdr.line = req_header;
 	}
 
 	pr_debug(VERBOSE, "parsing HTTP request\n");
