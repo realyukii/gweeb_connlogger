@@ -320,6 +320,15 @@ static int parse_req_hdr(struct http_hdr *req_header)
 	while (*req_header->value == ' ')
 		req_header->value++;
 
+	/* TODO:
+	* it is possible this trim trailing space logic can split two value
+	* separated by space instead of trimming actual trailing space
+	* which is unexpected, how to prevent it?
+	*/
+	char *trailing = strchr(req_header->value, ' ');
+	if (trailing != NULL)
+		*trailing = '\0';
+
 	strtolower(req_header->key);
 	return 0;
 }
