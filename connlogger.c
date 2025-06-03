@@ -364,10 +364,12 @@ next:
 	char *end_of_hdr = NULL;
 	char *method = NULL;
 	if (h->state == HTTP_REQ_HDR) {
+		/* make sure it's a HTTP request */
 		method = find_method(r->raw_bytes);
 		if (method == NULL)
 			return;
 
+		/* some bytes haven't arrived yet, wait until it completed */
 		end_of_hdr = strstr(r->raw_bytes, "\r\n\r\n");
 		if (end_of_hdr == NULL)
 			return;
@@ -588,7 +590,6 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 		return;
 
 	pr_debug(VERBOSE, "dequeue request...\n");
-	asm volatile("int3");
 	struct http_req *req = front(&h->req_queue);
 	if (req == NULL) {
 		pr_debug(VERBOSE, "failed to dequeue request\n");
