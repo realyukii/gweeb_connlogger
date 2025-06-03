@@ -76,11 +76,6 @@ static FILE *file_log = NULL;
 static void init_queue(struct http_req_queue *q)
 {
 	q->capacity = DEFAULT_REQ_QUEUE_SZ;
-	/* TODO:
-	* handle malloc failure.
-	* what to do when we fail to init queue?
-	* unregister the sockfd from the pool?
-	*/
 	q->req = malloc(DEFAULT_REQ_QUEUE_SZ * sizeof(struct http_req));
 }
 
@@ -187,6 +182,15 @@ static void push_sockfd(int sockfd)
 				break;
 			}
 
+			init_queue(&c[i].req_queue);
+			if (c[i].req_queue.req == NULL)
+				break;
+			pr_debug(
+				VERBOSE,
+				"init queue for socket file descriptor %d\n",
+				sockfd
+			);
+
 			pr_debug(
 				DEBUG,
 				"new socket file descriptor is registered to the pool: %d\n",
@@ -195,12 +199,6 @@ static void push_sockfd(int sockfd)
 			c[i].sockfd = sockfd;
 			c[i].raw_req.cap = DEFAULT_RAW_CAP;
 			c[i].raw_res.cap = DEFAULT_RAW_CAP;
-			init_queue(&c[i].req_queue);
-			pr_debug(
-				VERBOSE,
-				"init queue for socket file descriptor %d\n",
-				sockfd
-			);
 
 			occupied_pool++;
 			break;
@@ -359,7 +357,7 @@ next:
 		"buffer address: %p\nlength: %ld\ncapacity: %ld\n",
 		r->raw_bytes, r->len, r->cap
 	);
-	
+
 	char *uri = strchr(r->raw_bytes, ' ');
 	*uri = '\0';
 	strcpy(req.method, method);
