@@ -361,48 +361,52 @@ next:
 	* did not follow the protocol standard?
 	* it is still possible that the find_method return false-positive?
 	*/
-	char *method = find_method(r->raw_bytes);
-	if (method == NULL)
-		return;
+	struct http_hdr hdr = {0};
+	char *end_of_hdr = NULL;
+	char *method = NULL;
+	if (h->state == HTTP_REQ_HDR) {
+		method = find_method(r->raw_bytes);
+		if (method == NULL)
+			return;
 
-	char *end_of_hdr = strstr(r->raw_bytes, "\r\n\r\n");
-	if (end_of_hdr == NULL)
-		return;
-	end_of_hdr += 4;
+		end_of_hdr = strstr(r->raw_bytes, "\r\n\r\n");
+		if (end_of_hdr == NULL)
+			return;
+		end_of_hdr += 4;
 
-	pr_debug(VERBOSE, "begin parsing HTTP request\n");
+		char *uri = strchr(r->raw_bytes, ' ');
+		*uri = '\0';
+		strcpy(req.method, method);
+		uri += 1;
+
+		char *end_uri = strstr(uri, " HTTP/1.");
+		*end_uri = '\0';
+		end_uri += 1;
+
+		size_t uri_len = strlen(uri);
+		if (uri_len > MAX_INSANE_URI_LENGTH)
+			return;
+
+		req.uri = malloc(uri_len);
+		/*
+		* abort the subsequent operation when we fail to allocate
+		* dynamic memory for uri
+		*/
+		if (req.uri == NULL)
+			return;
+		strcpy(req.uri, uri);
+		char *end_reqline = strstr(end_uri, "\r\n");
+		char *req_header = end_reqline + 2;
+		hdr.line = req_header;
+	}
+
+	pr_debug(VERBOSE, "parsing HTTP request\n");
 	pr_debug(
 		VERBOSE,
-		"buffer address: %p\nlength: %ld\ncapacity: %ld\n",
-		r->raw_bytes, r->len, r->cap
+		"buffer address: %p\nlength: %ld\ncapacity: %ld\nstate: %d\n",
+		r->raw_bytes, r->len, r->cap, h->state
 	);
 
-	char *uri = strchr(r->raw_bytes, ' ');
-	*uri = '\0';
-	strcpy(req.method, method);
-	uri += 1;
-
-	char *end_uri = strstr(uri, " HTTP/1.");
-	*end_uri = '\0';
-	end_uri += 1;
-
-	size_t uri_len = strlen(uri);
-	if (uri_len > MAX_INSANE_URI_LENGTH)
-		return;
-
-	req.uri = malloc(uri_len);
-	/*
-	* abort the subsequent operation when we fail to allocate
-	* dynamic memory for uri
-	*/
-	if (req.uri == NULL)
-		return;
-	strcpy(req.uri, uri);
-	char *end_reqline = strstr(end_uri, "\r\n");
-	char *req_header = end_reqline + 2;
-
-	struct http_hdr hdr = {0};
-	hdr.line = req_header;
 	while (true) {
 		switch (h->state) {
 		case HTTP_REQ_HDR:
