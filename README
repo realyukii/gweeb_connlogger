@@ -13,9 +13,7 @@ topic I learned on part 2:
 - edge cases when handling HTTP connection
 
 edge cases:
-- log the URI string up to 300k according to https://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers
-- unlimited request queue up to maximum system resources
-- unlimited raw req/res buffer up to maximum system resources
-- unlimited pool of registered connection up to maximum system resources
+- a server that respond multiple request of HTTP pipeline in just one recv
+- a server that ignore part of HTTP request pipeline by closing it in the middle
 
 Compiled and tested on: Linux x86_64 glibc.

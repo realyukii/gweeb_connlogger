@@ -77,6 +77,12 @@ skenario tertentu yang saat ini dapat ditangani:
 - transfer encoding chunked
 - websocket switch protocol
 
+spesifikasi:
+- log the URI string up to 300k according to https://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers
+- unlimited request queue up to maximum system resources
+- unlimited raw req/res buffer up to maximum system resources
+- unlimited pool of registered connection up to maximum system resources
+
 additional note:
 - `recvfrom` dan `sendto` digunakan untuk jaga-jaga jika ada program yang langsung call ke situ dan gak ke-catch di `send` ataupun `recv`
 - intercept `read` dan `write` juga karena program seperti `nc` menggunakan syscall tersebut untuk mengirim dan menerima paket 
