@@ -444,6 +444,10 @@ next:
 			if (hdr.line + 2 == end_of_hdr) {
 				if (h->is_chunked || h->content_length > 0)
 					h->state = HTTP_REQ_BODY;
+				pr_debug(VERBOSE, "push processed data to the queue\n");
+				if (enqueue(&h->req_queue, req) < 0)
+					pr_debug(VERBOSE, "warning: failed to push data to queue\n");
+				advance(r, end_of_hdr - method);
 				goto exit_loop;
 			}
 			break;
@@ -465,7 +469,7 @@ next:
 				if (chunk_sz == 0) {
 					advance(r, ascii_hex_len + 2 + chunk_sz + 2);
 					h->state = HTTP_REQ_HDR;
-					goto check_len;
+					goto exit_loop;
 				}
 
 				/* some bytes haven't departed yet. */
@@ -493,17 +497,12 @@ next:
 				* to send multiple HTTP request
 				*/
 				h->state = HTTP_REQ_HDR;
-				goto check_len;
+				goto exit_loop;
 			}
 		}
 	}
 
 exit_loop:
-	pr_debug(VERBOSE, "push processed data to the queue\n");
-	if (enqueue(&h->req_queue, req) < 0)
-		pr_debug(VERBOSE, "warning: failed to push data to queue\n");
-	advance(r, end_of_hdr - method);
-check_len:
 	if (r->len > 0)
 		goto next;
 }
