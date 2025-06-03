@@ -369,7 +369,7 @@ next:
 		if (method == NULL)
 			return;
 
-		/* some bytes haven't arrived yet, wait until it completed */
+		/* some bytes haven't departed yet, wait until it completed */
 		end_of_hdr = strstr(r->raw_bytes, "\r\n\r\n");
 		if (end_of_hdr == NULL)
 			return;
@@ -451,32 +451,49 @@ next:
 			if (h->is_chunked) {
 				char *separator = strstr(r->raw_bytes, "\r\n");
 				/*
-				* some bytes haven't arrived yet, short-send?
+				* some bytes haven't departed yet, short-send?
 				* wait until it completed
 				* or maybe it's a malformed http request
 				*/
 				if (separator == NULL)
 					return;
 				*separator = '\0';
-				int len = strlen(r->raw_bytes);
+				int ascii_hex_len = strlen(r->raw_bytes);
 				size_t chunk_sz = strtoull(r->raw_bytes, NULL, 16);
 				
-				size_t end_body = separator + 2 + chunk_sz;
-				strncmp(end_body, "\r\n", 2);
+				if (chunk_sz == 0) {
+					advance(r, ascii_hex_len + 2 + chunk_sz + 2);
+					h->state = HTTP_REQ_HDR;
+					return;
+				}
 
-				/* some bytes haven't arrived yet. */
-				if (r->len - (len + 2) < chunk_sz)
+				/* some bytes haven't departed yet. */
+				if (r->len - (ascii_hex_len + 4) < chunk_sz)
 					return;
 				
-				advance(r, len + 2);
-				asm volatile("int3");
+				/*
+				* shift the buffer and check for the next chunk
+				* in the newly shifted buffer if any.
+				*/
+				advance(r, ascii_hex_len + 2 + chunk_sz + 2);
 			} else {
 				/* some bytes haven't departed yet */
 				if (r->len < h->content_length)
 					return;
 				advance(r, h->content_length);
+				
+				/*
+				* completed body.
+				* after fully receive body content,
+				* try to lookup for another header if any.
+				* 
+				* handle scenario like HTTP pipeline or
+				* keep-alive that re-using existing socket
+				* to send multiple HTTP request
+				*/
+				h->state = HTTP_REQ_HDR;
+				return;
 			}
-			return;
 		}
 	}
 
