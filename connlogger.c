@@ -40,7 +40,6 @@ struct http_req_queue {
 typedef enum {
 	HTTP_REQ_HDR = 0,
 	HTTP_REQ_BODY
-	// HTTP_REQ_BODY_DONE
 } parser_state;
 
 struct http_hdr {
@@ -270,7 +269,7 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 
 static int parse_res_hdr(http_res_raw *r, struct http_req *res)
 {
-	pr_debug(VERBOSE, "begin parsing response header\n");
+	pr_debug(VERBOSE, "parsing response header\n");
 	pr_debug(
 		VERBOSE,
 		"buffer address: %p\nlength: %ld\ncapacity: %ld\n",
@@ -448,13 +447,14 @@ next:
 		case HTTP_REQ_BODY:
 			pr_debug(VERBOSE, "parsing request body\n");
 			if (req.is_chunked) {
-				/* TODO */
+				/* TODO:
+				* handle transfer-encoding chunked
+				*/
 			} else {
-				/* some bytes hasn't arrived yet */
+				/* some bytes haven't departed yet */
 				if (r->len < req.content_length)
 					return;
 				advance(r, req.content_length);
-				// req.state = HTTP_REQ_BODY_DONE;
 			}
 			return;
 		}
@@ -580,6 +580,7 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 		return;
 
 	pr_debug(VERBOSE, "dequeue request...\n");
+	asm volatile("int3");
 	struct http_req *req = front(&h->req_queue);
 	if (req == NULL) {
 		pr_debug(VERBOSE, "failed to dequeue request\n");
