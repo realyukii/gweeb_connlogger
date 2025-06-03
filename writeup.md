@@ -12,6 +12,7 @@
 list of used glibc's function:
 from string:
 - `strstr`
+- `strchr`
 - `strcpy`
 - `memcpy`
 from time:

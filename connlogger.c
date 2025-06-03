@@ -39,9 +39,9 @@ struct http_req_queue {
 
 typedef enum {
 	HTTP_REQ_HDR = 0,
-	HTTP_REQ_BODY,
-	HTTP_REQ_BODY_DONE
-} state;
+	HTTP_REQ_BODY
+	// HTTP_REQ_BODY_DONE
+} parser_state;
 
 struct http_hdr {
 	char *key;
@@ -55,9 +55,8 @@ struct http_req {
 	char host[MAX_HOST_LEN];
 	char response_code[4];
 	char *uri;
-	long long content_length;
+	size_t content_length;
 	bool is_chunked;
-	state state;
 };
 
 struct concated_buf {
@@ -76,6 +75,7 @@ struct http_ctx {
 	struct http_req_queue req_queue;
 	http_req_raw raw_req;
 	http_res_raw raw_res;
+	parser_state state;
 };
 
 static size_t current_pool_sz = DEFAULT_POOL_SZ;
@@ -354,7 +354,7 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 	if (concat_buf(buf, r, buf_len) < 0)
 		return;
 
-	struct http_req req;
+	struct http_req req = {0};
 next:
 	/* TODO:
 	* how to make sure we can handle malformed HTTP request that
@@ -382,7 +382,7 @@ next:
 	strcpy(req.method, method);
 	uri += 1;
 
-	char *end_uri = strstr(uri, " HTTP/1.") ;
+	char *end_uri = strstr(uri, " HTTP/1.");
 	*end_uri = '\0';
 	end_uri += 1;
 
@@ -403,11 +403,16 @@ next:
 
 	struct http_hdr hdr = {0};
 	hdr.line = req_header;
-	while (1) {
-		switch (req.state) {
+	while (true) {
+		switch (h->state) {
 		case HTTP_REQ_HDR:
 			if (parse_req_hdr(&hdr) < 0)
 				return;
+			pr_debug(
+				VERBOSE,
+				"parsing request header: %s\n",
+				hdr.key
+			);
 
 			if (strcmp(hdr.key, "host") == 0) {
 				strcpy(req.host, hdr.value);
@@ -429,23 +434,32 @@ next:
 				if (strstr(hdr.value, "chunked") != NULL)
 					req.is_chunked = true;
 			}
+
+			if (hdr.line + 2 == end_of_hdr) {
+				if (req.is_chunked || req.content_length > 0)
+					h->state = HTTP_REQ_BODY;
+				goto exit_loop;
+			}
 			break;
 		case HTTP_REQ_BODY:
-			/* TODO */
-			parse_body();
-			break;
-		
-		default:
-			break;
+			pr_debug(VERBOSE, "parsing request body\n");
+			if (req.is_chunked) {
+				/* TODO */
+			} else {
+				/* some bytes hasn't arrived yet */
+				if (r->len < req.content_length)
+					return;
+				advance(r, req.content_length);
+				// req.state = HTTP_REQ_BODY_DONE;
+			}
+			return;
 		}
-
-		if (hdr.line + 2 == end_of_hdr)
-			break;
 	}
 
+exit_loop:
 	pr_debug(VERBOSE, "push processed data to the queue\n");
 	if (enqueue(&h->req_queue, req) < 0)
-		pr_debug(VERBOSE, "warning: failed to push data to queue");
+		pr_debug(VERBOSE, "warning: failed to push data to queue\n");
 	advance(r, end_of_hdr - method);
 	if (r->len > 0)
 		goto next;
