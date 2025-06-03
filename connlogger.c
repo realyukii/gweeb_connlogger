@@ -416,7 +416,7 @@ next:
 
 			if (strcmp(hdr.key, "host") == 0) {
 				strcpy(req.host, hdr.value);
-			} else if (strcmp(hdr.key, "content-length")) {
+			} else if (strcmp(hdr.key, "content-length") == 0) {
 				/*
 				* if it have content-length but also chunked,
 				* it's malformed HTTP request
@@ -424,7 +424,7 @@ next:
 				if (req.is_chunked)
 					return;
 				req.content_length = atoll(hdr.value);
-			} else if (strcmp(hdr.key, "transfer-encoding")) {
+			} else if (strcmp(hdr.key, "transfer-encoding") == 0) {
 				/*
 				* if it's chunked and have content-length,
 				* it's malformed HTTP request
