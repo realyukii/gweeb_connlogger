@@ -65,6 +65,12 @@ struct concated_buf {
 	size_t cap;
 };
 
+/* TODO:
+* is there any problem if we use same buffer for raw request and response?
+* it seems the scenario so far never call recv and send at once at the same time
+* so maybe we can just overwrite the old one by using same buffer address for recv and send?
+* because each sockfd use different buffer address, maybe it's safe? I dunno...
+*/
 typedef struct concated_buf http_req_raw;
 typedef struct concated_buf http_res_raw;
 
