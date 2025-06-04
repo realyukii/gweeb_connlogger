@@ -474,15 +474,14 @@ static int parse_req_line(char **method, char **end_of_hdr,
 	if (uri_len > MAX_INSANE_URI_LENGTH)
 		return -EINVAL;
 
-	req->uri = malloc(uri_len + 1);
+	req->uri = malloc(uri_len);
 	/*
 	* abort the subsequent operation when we fail to allocate
 	* dynamic memory for uri
 	*/
 	if (req->uri == NULL)
 		return -EINVAL;
-	req->uri[uri_len] = '\0';
-	strcpy(req->uri, uri);
+	memcpy(req->uri, uri, uri_len);
 
 	char *end_reqline = strstr(end_uri, "\r\n");
 	char *req_header = end_reqline + 2;
