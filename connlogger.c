@@ -469,7 +469,7 @@ static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr,
 	return -EAGAIN;
 }
 
-static int process_req_body(struct http_ctx *h, http_req_raw *r)
+static int process_body(struct http_ctx *h, struct concat_buf *r)
 {
 	if (h->is_chunked) {
 		char *separator = strstr(r->raw_bytes, "\r\n");
@@ -563,7 +563,7 @@ next:
 			goto exit_loop;
 		case HTTP_REQ_BODY:
 			pr_debug(VERBOSE, "parsing request body\n");
-			ret = process_req_body(h, r);
+			ret = process_body(h, r);
 			if (ret == -EINVAL)
 				return;
 			else if (ret == -EAGAIN)
