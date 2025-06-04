@@ -387,37 +387,37 @@ static int parse_req_line(char **method, char **end_of_hdr,
 	return 0;
 }
 
-static int parse_req_hdr(struct http_hdr *req_header)
+static int parse_hdr(struct http_hdr *header)
 {
 	/* iterate over the http header */
-	req_header->next_line = strstr(req_header->line, "\r\n");
-	if (req_header->next_line == NULL)
+	header->next_line = strstr(header->line, "\r\n");
+	if (header->next_line == NULL)
 		return -1;
-	req_header->key = req_header->line;
-	req_header->value = strchr(req_header->line, ':');
-	if (req_header->value == NULL)
+	header->key = header->line;
+	header->value = strchr(header->line, ':');
+	if (header->value == NULL)
 		return -1;
-	*req_header->value = '\0';
-	req_header->value += 1;
+	*header->value = '\0';
+	header->value += 1;
 
-	*req_header->next_line = '\0';
-	req_header->next_line += 2;
-	req_header->line = req_header->next_line;
+	*header->next_line = '\0';
+	header->next_line += 2;
+	header->line = header->next_line;
 
 	/* ignore any leading space */
-	while (*req_header->value == ' ')
-		req_header->value++;
+	while (*header->value == ' ')
+		header->value++;
 
 	/* TODO:
 	* it is possible this trim trailing space logic can split two value
 	* separated by space instead of trimming actual trailing space
 	* which is unexpected, how to prevent it?
 	*/
-	char *trailing = strchr(req_header->value, ' ');
+	char *trailing = strchr(header->value, ' ');
 	if (trailing != NULL)
 		*trailing = '\0';
 
-	strtolower(req_header->key);
+	strtolower(header->key);
 	return 0;
 }
 
