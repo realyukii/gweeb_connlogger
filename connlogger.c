@@ -293,6 +293,40 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 	return 0;
 }
 
+static int parse_hdr(struct http_hdr *header)
+{
+	/* iterate over the http header */
+	header->next_line = strstr(header->line, "\r\n");
+	if (header->next_line == NULL)
+		return -1;
+	header->key = header->line;
+	header->value = strchr(header->line, ':');
+	if (header->value == NULL)
+		return -1;
+	*header->value = '\0';
+	header->value += 1;
+
+	*header->next_line = '\0';
+	header->next_line += 2;
+	header->line = header->next_line;
+
+	/* ignore any leading space */
+	while (*header->value == ' ')
+		header->value++;
+
+	/* TODO:
+	* it is possible this trim trailing space logic can split two value
+	* separated by space instead of trimming actual trailing space
+	* which is unexpected, how to prevent it?
+	*/
+	char *trailing = strchr(header->value, ' ');
+	if (trailing != NULL)
+		*trailing = '\0';
+
+	strtolower(header->key);
+	return 0;
+}
+
 static int parse_res_hdr(http_res_raw *r, struct http_req *res)
 {
 	pr_debug(VERBOSE, "parsing response header\n");
@@ -384,40 +418,6 @@ static int parse_req_line(char **method, char **end_of_hdr,
 	char *req_header = end_reqline + 2;
 	hdr->line = req_header;
 
-	return 0;
-}
-
-static int parse_hdr(struct http_hdr *header)
-{
-	/* iterate over the http header */
-	header->next_line = strstr(header->line, "\r\n");
-	if (header->next_line == NULL)
-		return -1;
-	header->key = header->line;
-	header->value = strchr(header->line, ':');
-	if (header->value == NULL)
-		return -1;
-	*header->value = '\0';
-	header->value += 1;
-
-	*header->next_line = '\0';
-	header->next_line += 2;
-	header->line = header->next_line;
-
-	/* ignore any leading space */
-	while (*header->value == ' ')
-		header->value++;
-
-	/* TODO:
-	* it is possible this trim trailing space logic can split two value
-	* separated by space instead of trimming actual trailing space
-	* which is unexpected, how to prevent it?
-	*/
-	char *trailing = strchr(header->value, ' ');
-	if (trailing != NULL)
-		*trailing = '\0';
-
-	strtolower(header->key);
 	return 0;
 }
 
