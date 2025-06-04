@@ -342,6 +342,14 @@ static int parse_req_line(char **method, char **end_of_hdr,
 		struct http_hdr *hdr, http_req_raw *r, struct http_req *req)
 {
 	char *uri = strchr(r->raw_bytes, ' ');
+	/*
+	* try to wait for more buffer, but if we still didn't find the space
+	* after a certain length, we decide to drop the connection from the pool
+	*/
+	if (uri == NULL && r->len < MAX_HTTP_METHOD_LEN)
+		return -EAGAIN;
+	if (uri == NULL)
+		return -EINVAL;
 	*uri = '\0';
 	uri += 1;
 
