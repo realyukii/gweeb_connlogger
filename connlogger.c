@@ -503,7 +503,7 @@ static int process_req_body(struct http_ctx *h, http_req_raw *r)
 		if (r->len < h->content_length)
 			return -EINVAL;
 		advance(r, h->content_length);
-		
+
 		/*
 		* completed body.
 		* after fully receive body content,
@@ -530,11 +530,6 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 
 	struct http_req req = {0};
 next:
-	/* TODO:
-	* how to make sure we can handle malformed HTTP request that
-	* did not follow the protocol standard?
-	* it is still possible that the find_method return false-positive?
-	*/
 	struct http_hdr hdr = {0};
 	char *end_of_hdr = NULL;
 	char *method = NULL;
