@@ -422,7 +422,7 @@ static int parse_req_line(char **method, char **end_of_hdr,
 	*/
 	if (req->uri == NULL)
 		return -EINVAL;
-	*req->uri[uri_len] = '\0';
+	req->uri[uri_len] = '\0';
 	strcpy(req->uri, uri);
 
 	char *end_reqline = strstr(end_uri, "\r\n");
