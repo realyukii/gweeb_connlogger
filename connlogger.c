@@ -198,13 +198,13 @@ static void push_sockfd(int sockfd)
 			break;
 		pr_debug(
 			VERBOSE,
-			"init queue for sockfd descriptor %d\n",
+			"init queue for sockfd %d\n",
 			sockfd
 		);
 
 		pr_debug(
 			DEBUG,
-			"new sockfd %d descriptor is registered to the pool\n",
+			"new sockfd %d is registered to the pool\n",
 			sockfd
 		);
 		c[i].sockfd = sockfd;
@@ -220,7 +220,7 @@ static void unwatch_sockfd(struct http_ctx *h)
 {
 	pr_debug(
 		DEBUG,
-		"sockfd descriptor %d is unregistered from the pool\n",
+		"sockfd %d is unregistered from the pool\n",
 		h->sockfd
 	);
 	h->sockfd = 0;
@@ -695,7 +695,7 @@ static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
 
 	pr_debug(
 		VERBOSE,
-		"sockfd descriptor %d is connected to %s:%d\n",
+		"sockfd %d is connected to %s:%d\n",
 		h->sockfd,
 		h->ip_addr,
 		h->port_addr
