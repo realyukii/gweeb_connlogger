@@ -419,10 +419,21 @@ static int parse_req_hdr(struct http_hdr *req_header)
 static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr,
 	char *end_of_hdr, char *method, http_req_raw *r, struct http_req *req)
 {
+	if (hdr->line + 2 == end_of_hdr) {
+		if (h->is_chunked || h->content_length > 0)
+			h->state = HTTP_REQ_BODY;
+		pr_debug(VERBOSE, "push processed data to the queue\n");
+		if (enqueue(&h->req_queue, *req) < 0)
+			pr_debug(VERBOSE, "warning: failed to push data to queue\n");
+		advance(r, end_of_hdr - method);
+		return 0;
+	}
+
 	/* assume it's malformed HTTP header if we can't parse it */
 	if (parse_req_hdr(hdr) < 0) {
 		return -EINVAL;
 	}
+
 	pr_debug(
 		VERBOSE,
 		"parsing request header: %s\n",
@@ -450,16 +461,7 @@ static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr,
 			h->is_chunked = true;
 	}
 
-	if (hdr->line + 2 != end_of_hdr)
-		return -EAGAIN;
-
-	if (h->is_chunked || h->content_length > 0)
-		h->state = HTTP_REQ_BODY;
-	pr_debug(VERBOSE, "push processed data to the queue\n");
-	if (enqueue(&h->req_queue, *req) < 0)
-		pr_debug(VERBOSE, "warning: failed to push data to queue\n");
-	advance(r, end_of_hdr - method);
-	return 0;
+	return -EAGAIN;
 }
 
 static int process_req_body(struct http_ctx *h, http_req_raw *r)
