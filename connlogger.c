@@ -295,12 +295,14 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 		memcpy(*b + *append_pos, src, len);
 		*append_pos += len;
 	} else {
+		// asm volatile("int3");
 		/* we don't have enough space in the memory, let's resize it */
 		void *tmp = realloc(*b, buf->cap + incoming_len);
 		if (tmp == NULL) {
 			return -1;
 		}
 		*b = tmp;
+		// asm volatile("int3");
 		memcpy(*b + *append_pos, src, len);
 		*append_pos += len;
 		buf->cap += incoming_len;
@@ -699,6 +701,7 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 	char human_readable_time[26] = {0};
 	generate_current_time(human_readable_time);
 
+	// asm volatile("int3");
 	int ret = fprintf(
 		file_log,
 		"[%s]|%s:%d|Host: %s|Method: %s|URI %s|Status: %s\n",
@@ -741,6 +744,7 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 next:
 	if (h->state == HTTP_RES_HDR) {
 		pr_debug(VERBOSE, "dequeue request...\n");
+		// asm volatile("int3");
 		req = front(&h->req_queue);
 		if (req == NULL) {
 			pr_debug(VERBOSE, "failed to dequeue request\n");
