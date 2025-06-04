@@ -367,12 +367,6 @@ static int parse_res_line(char **http_ver, char **end_of_hdr,
 	if (*http_ver == NULL)
 		return -EINVAL;
 
-	/* do we need this? */
-	// char *space = strchr(status_code, ' ');
-	// if (space == NULL)
-	// 	return -EINVAL;
-	// *space = '\0';
-
 	strncpy(req->response_code, status_code, 3);
 
 	/* some bytes haven't arrived yet, wait until it completed */
