@@ -492,7 +492,7 @@ static int parse_req_line(char **method, char **end_of_hdr,
 }
 
 static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr,
-	char *end_of_hdr, char *method, http_req_raw *r, struct http_req *req)
+	char *end_of_hdr, char *method, struct http_req *req)
 {
 	if (hdr->line + 2 == end_of_hdr) {
 		if (h->is_chunked || h->content_length > 0)
@@ -500,7 +500,7 @@ static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr,
 		pr_debug(VERBOSE, "push processed data to the queue\n");
 		if (enqueue(&h->req_queue, *req) < 0)
 			pr_debug(VERBOSE, "warning: failed to push data to queue\n");
-		advance(r, end_of_hdr - method);
+		advance(&h->raw_req, end_of_hdr - method);
 		return 0;
 	}
 
@@ -626,7 +626,7 @@ next:
 	while (true) {
 		switch (h->state) {
 		case HTTP_REQ_HDR:
-			ret = process_req_hdr(h, &hdr, end_of_hdr, method, r, &req);
+			ret = process_req_hdr(h, &hdr, end_of_hdr, method, &req);
 			if (ret == -EINVAL) {
 				unwatch_sockfd(h);
 				return;
