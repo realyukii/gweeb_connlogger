@@ -157,6 +157,17 @@ static int init(void)
 	return 0;
 }
 
+static void advance(struct concated_buf *ptr, size_t len)
+{
+	if (len > ptr->len)
+		ptr->len = 0;
+	else
+		ptr->len -= len;
+
+	if (ptr->len > 0)
+		memmove(ptr->raw_bytes, ptr->raw_bytes + len, ptr->len);
+}
+
 static void push_sockfd(int sockfd)
 {
 	struct http_ctx *c = ctx_pool;
