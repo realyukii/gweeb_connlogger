@@ -341,14 +341,9 @@ static int parse_hdr(struct http_hdr *header)
 	while (*header->value == ' ')
 		header->value++;
 
-	/* TODO:
-	* it is possible this trim trailing space logic can split two value
-	* separated by space instead of trimming actual trailing space
-	* which is unexpected, how to prevent it?
-	*/
-	char *trailing = strchr(header->value, ' ');
-	if (trailing != NULL)
-		*trailing = '\0';
+	char *trailing = header->next_line - 3;
+	if (*trailing == ' ')
+		trailing--;
 
 	strtolower(header->key);
 	return 0;
