@@ -276,11 +276,6 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 		/* we don't have enough space in the memory, let's resize it */
 		void *tmp = realloc(*b, buf->cap + incoming_len);
 		if (tmp == NULL) {
-			/* TODO:
-			* should we free b? if we decided to free b we need to
-			* figure out what to do on the next concat,
-			* so far raw_bytes only allocated from socket creation
-			*/
 			return -1;
 		}
 		*b = tmp;
@@ -527,13 +522,11 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 {
 	int ret;
 	http_req_raw *r = &h->raw_req;
-	/* TODO:
-	* what to do when we failed to concat? stop parsing completely?
-	* for now, just make sure the concat operation success before proceed-
-	* executing subsequent instruction
-	*/
-	if (concat_buf(buf, r, buf_len) < 0)
+
+	if (concat_buf(buf, r, buf_len) < 0) {
+		unwatch_sockfd(h);
 		return;
+	}
 
 	struct http_req req = {0};
 next:
@@ -667,13 +660,10 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 		return;
 	}
 
-	/* TODO:
-	* what to do when we failed to concat? stop parsing completely?
-	* for now, just make sure the concat operation success before proceed-
-	* executing subsequent instruction
-	*/
-	if (concat_buf(buf, &h->raw_res, buf_len) < 0)
+	if (concat_buf(buf, &h->raw_res, buf_len) < 0) {
+		unwatch_sockfd(h);
 		return;
+	}
 
 	pr_debug(VERBOSE, "dequeue request...\n");
 	struct http_req *req = front(&h->req_queue);
