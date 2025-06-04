@@ -726,10 +726,12 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 	int ret;
 	char *http_ver = NULL;
 	char *end_of_hdr = NULL;
+	struct http_req *req = NULL;
 	struct http_hdr hdr = {0};
 
 	if (buf_len == 0) {
 		/*
+		* built-in php web server
 		* the server send an EOF, we can assume the connection
 		* will be closed and data will no longer be sent, stop parsing.
 		*/
@@ -742,14 +744,14 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 	}
 
 next:
-	pr_debug(VERBOSE, "dequeue request...\n");
-	struct http_req *req = front(&h->req_queue);
-	if (req == NULL) {
-		pr_debug(VERBOSE, "failed to dequeue request\n");
-		return;
-	}
-
 	if (h->state == HTTP_RES_HDR) {
+		pr_debug(VERBOSE, "dequeue request...\n");
+		req = front(&h->req_queue);
+		if (req == NULL) {
+			pr_debug(VERBOSE, "failed to dequeue request\n");
+			return;
+		}
+
 		ret = parse_res_line(&http_ver, &end_of_hdr, &hdr, &h->raw_res, req);
 		if (ret == -EINVAL) {
 			unwatch_sockfd(h);
@@ -774,9 +776,10 @@ next:
 				return;
 			} else if (ret == -EAGAIN)
 				continue;
+			write_log(h, req);
 			goto exit_loop;
 		case HTTP_RES_BODY:
-			pr_debug(VERBOSE, "parsing request body\n");
+			pr_debug(VERBOSE, "parsing response body\n");
 			ret = process_body(h, &h->raw_res, HTTP_RES_HDR);
 			if (ret == -EINVAL)
 				return;
@@ -787,8 +790,6 @@ next:
 	}
 
 exit_loop:
-	write_log(h, req);
-
 	if (h->req_queue.occupied > 0 && h->raw_res.len > 0)
 		goto next;
 }
