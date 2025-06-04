@@ -19,6 +19,7 @@
 #define DEFAULT_POOL_SZ 100
 #define DEFAULT_RAW_CAP 1024
 #define MAX_HTTP_METHOD_LEN 8
+#define MAX_HTTP_VER_LEN 9
 #define MAX_HOST_LEN 512
 #define MAX_INSANE_URI_LENGTH 300000
 
@@ -39,7 +40,9 @@ struct http_req_queue {
 
 typedef enum {
 	HTTP_REQ_HDR = 0,
-	HTTP_REQ_BODY
+	HTTP_REQ_BODY,
+	HTTP_RES_HDR,
+	HTTP_RES_BODY
 } parser_state;
 
 struct http_hdr {
@@ -344,39 +347,93 @@ static int parse_hdr(struct http_hdr *header)
 	return 0;
 }
 
-static int parse_res_hdr(http_res_raw *r, struct http_req *res)
+static int parse_res_line(char **http_ver, char **end_of_hdr, 
+		struct http_hdr *hdr, http_res_raw *r, struct http_req *req)
 {
-	pr_debug(VERBOSE, "parsing response header\n");
-	pr_debug(
-		VERBOSE,
-		"buffer address: %p\nlength: %ld\ncapacity: %ld\n",
-		r->raw_bytes, r->len, r->cap
-	);
+	char *status_code = strchr(r->raw_bytes, ' ');
+	/*
+	* try to wait for more buffer, but if we still didn't find the space
+	* after a certain length, we decide to drop the connection from the pool
+	*/
+	if (status_code == NULL && r->len < MAX_HTTP_VER_LEN)
+		return -EAGAIN;
+	if (status_code == NULL)
+		return -EINVAL;
+	*status_code = '\0';
+	status_code += 1;
 
-	char *http_ver = strstr(r->raw_bytes, "HTTP/1.1");
-	if (http_ver == NULL)
-		return -1;
+	/* make sure it's a HTTP response */
+	*http_ver = strstr(r->raw_bytes, "HTTP/1.");
+	if (*http_ver == NULL)
+		return -EINVAL;
 
-	char *end_of_hdr = strstr(r->raw_bytes, "\r\n\r\n");
-	if (end_of_hdr == NULL)
-		return -1;
-	
-	/* for testing-only */
-	char code_status[] = "200";
-	strcpy(res->response_code, code_status);
+	/* do we need this? */
+	// char *space = strchr(status_code, ' ');
+	// if (space == NULL)
+	// 	return -EINVAL;
+	// *space = '\0';
+
+	strncpy(req->response_code, status_code, 3);
+
+	/* some bytes haven't arrived yet, wait until it completed */
+	*end_of_hdr = strstr(status_code, "\r\n\r\n");
+	if (*end_of_hdr == NULL)
+		return -EAGAIN;
+	*end_of_hdr += 4;
+
+	/* TODO:
+	* even though the above already test the http version/http method and
+	* crlf crlf, but malformed HTTP request and response is still possible
+	* in between the string, figure out how to handle it
+	*/
+	char *end_resline = strstr(status_code, "\r\n");
+	char *res_header = end_resline + 2;
+	hdr->line = res_header;
 
 	return 0;
 }
 
-static void advance(struct concated_buf *ptr, size_t len)
+static int process_res_hdr(struct http_ctx *h, struct http_hdr *hdr,
+	char *end_of_hdr, char *http_ver)
 {
-	if (len > ptr->len)
-		ptr->len = 0;
-	else
-		ptr->len -= len;
+	if (hdr->line + 2 == end_of_hdr) {
+		if (h->is_chunked || h->content_length > 0)
+			h->state = HTTP_RES_BODY;
+		advance(&h->raw_res, end_of_hdr - http_ver);
+		return 0;
+	}
 
-	if (ptr->len > 0)
-		memmove(ptr->raw_bytes, ptr->raw_bytes + len, ptr->len);
+	/* assume it's malformed HTTP header if we can't parse it */
+	if (parse_hdr(hdr) < 0) {
+		return -EINVAL;
+	}
+
+	pr_debug(
+		VERBOSE,
+		"parsing response header: %s: %s\n",
+		hdr->key, hdr->value
+	);
+
+	if (strcmp(hdr->key, "content-length") == 0) {
+		/*
+		* if it have content-length but also chunked,
+		* it's malformed HTTP response
+		*/
+		if (h->is_chunked)
+			return -EINVAL;
+		h->content_length = atoll(hdr->value);
+	} else if (strcmp(hdr->key, "transfer-encoding") == 0) {
+		/*
+		* if it's chunked and have content-length,
+		* it's malformed HTTP response
+		*/
+		if (h->content_length > 0)
+			return -EINVAL;
+		if (strstr(hdr->value, "chunked") != NULL)
+			h->is_chunked = true;
+	}
+
+	return -EAGAIN;
 }
 
 static int parse_req_line(char **method, char **end_of_hdr, 
@@ -586,6 +643,9 @@ next:
 exit_loop:
 	if (r->len > 0)
 		goto next;
+
+	/* move to the next state, receiving server respond */
+	h->state = HTTP_RES_HDR;
 }
 
 static struct http_ctx *find_http_ctx(int sockfd)
@@ -659,6 +719,11 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 
 static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_len)
 {
+	int ret;
+	char *http_ver = NULL;
+	char *end_of_hdr = NULL;
+	struct http_hdr hdr = {0};
+
 	if (buf_len == 0) {
 		/*
 		* the server send an EOF, we can assume the connection
@@ -672,8 +737,7 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 		return;
 	}
 
-	pr_debug(VERBOSE, "parsing HTTP response\n");
-
+next:
 	pr_debug(VERBOSE, "dequeue request...\n");
 	struct http_req *req = front(&h->req_queue);
 	if (req == NULL) {
@@ -681,12 +745,49 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 		return;
 	}
 
-	if (parse_res_hdr(&h->raw_res, req) < 0)
-		return;
+	if (h->state == HTTP_RES_HDR) {
+		ret = parse_res_line(&http_ver, &end_of_hdr, &hdr, &h->raw_res, req);
+		if (ret == -EINVAL) {
+			unwatch_sockfd(h);
+			return;
+		} else if (ret == -EAGAIN)
+			return;
+	}
 
+	pr_debug(VERBOSE, "parsing HTTP response\n");
+	pr_debug(
+		VERBOSE,
+		"buffer address: %p\nlength: %ld\ncapacity: %ld\nstate: %d\n",
+		h->raw_res.raw_bytes, h->raw_res.len, h->raw_res.cap, h->state
+	);
+
+	while (true) {
+		switch (h->state) {
+		case HTTP_RES_HDR:
+			ret = process_res_hdr(h, &hdr, end_of_hdr, http_ver);
+			if (ret == -EINVAL) {
+				unwatch_sockfd(h);
+				return;
+			} else if (ret == -EAGAIN)
+				continue;
+			goto exit_loop;
+		case HTTP_RES_BODY:
+			pr_debug(VERBOSE, "parsing request body\n");
+			ret = process_body(h, &h->raw_res);
+			if (ret == -EINVAL)
+				return;
+			else if (ret == -EAGAIN)
+				continue;
+			goto exit_loop;
+		}
+	}
+
+exit_loop:
 	write_log(h, req);
-}
 
+	if (h->req_queue.occupied > 0 && h->raw_res.len > 0)
+		goto next;
+}
 
 static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
 {
