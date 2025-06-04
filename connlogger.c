@@ -465,6 +465,8 @@ static int parse_req_line(char **method, char **end_of_hdr,
 	*end_of_hdr += 4;
 
 	char *end_uri = strstr(uri, " HTTP/1.");
+	if (end_uri == NULL)
+		return -EINVAL;
 	*end_uri = '\0';
 	end_uri += 1;
 
