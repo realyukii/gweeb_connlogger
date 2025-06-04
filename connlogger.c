@@ -555,6 +555,7 @@ static int process_body(struct http_ctx *h, struct concated_buf *r)
 		if (chunk_sz == 0) {
 			advance(r, ascii_hex_len + 2 + chunk_sz + 2);
 			h->state = HTTP_REQ_HDR;
+			h->is_chunked = false;
 			return 0;
 		}
 
@@ -584,6 +585,7 @@ static int process_body(struct http_ctx *h, struct concated_buf *r)
 		* to send multiple HTTP request
 		*/
 		h->state = HTTP_REQ_HDR;
+		h->content_length = 0;
 		return 0;
 	}
 }
