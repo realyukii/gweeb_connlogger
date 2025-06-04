@@ -104,7 +104,7 @@ static int queue_grow(struct http_req_queue *q, size_t new_cap)
 	 	return -1;
 	
 	q->req = tmp;
-	q->tail = q->capacity + 1;
+	q->tail = q->capacity;
 	q->capacity = new_cap;
 	return 0;
 }
