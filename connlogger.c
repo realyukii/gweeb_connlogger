@@ -338,7 +338,7 @@ static void strtolower(char *str)
 		*p = tolower(*p);
 }
 
-static int parse_req_line(char *method, char *end_of_hdr, 
+static int parse_req_line(char **method, char **end_of_hdr, 
 		struct http_hdr *hdr, http_req_raw *r, struct http_req *req)
 {
 	char *uri = strchr(r->raw_bytes, ' ');
@@ -346,17 +346,17 @@ static int parse_req_line(char *method, char *end_of_hdr,
 	uri += 1;
 
 	/* make sure it's a HTTP request */
-	method = find_method(r->raw_bytes);
-	if (method == NULL)
+	*method = find_method(r->raw_bytes);
+	if (*method == NULL)
 		return -EINVAL;
 
-	strcpy(req->method, method);
+	strcpy(req->method, *method);
 
 	/* some bytes haven't departed yet, wait until it completed */
-	end_of_hdr = strstr(uri, "\r\n\r\n");
-	if (end_of_hdr == NULL)
+	*end_of_hdr = strstr(uri, "\r\n\r\n");
+	if (*end_of_hdr == NULL)
 		return -EAGAIN;
-	end_of_hdr += 4;
+	*end_of_hdr += 4;
 
 	char *end_uri = strstr(uri, " HTTP/1.");
 	*end_uri = '\0';
@@ -538,7 +538,7 @@ next:
 	char *end_of_hdr = NULL;
 	char *method = NULL;
 	if (h->state == HTTP_REQ_HDR) {
-		ret = parse_req_line(method, end_of_hdr, &hdr, r, &req);
+		ret = parse_req_line(&method, &end_of_hdr, &hdr, r, &req);
 		if (ret == -EINVAL) {
 			unwatch_sockfd(h);
 			return;
