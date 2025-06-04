@@ -174,44 +174,45 @@ static void push_sockfd(int sockfd)
 	}
 
 	for (size_t i = 0; i < current_pool_sz; i++) {
-		if (c[i].sockfd == 0) {
-			c[i].raw_req.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
-			c[i].raw_res.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
-			/*
-			* do not push current connection to the pool
-			* if we fail to allocate some memory
-			*/
-			if (c[i].raw_req.raw_bytes == NULL || c[i].raw_res.raw_bytes == NULL) {
-				void *to_free = (c[i].raw_req.raw_bytes != NULL)
-					? c[i].raw_req.raw_bytes
-					: c[i].raw_res.raw_bytes;
-				
-				/* if both null, it is still safe to call free */
-				free(to_free);
-				break;
-			}
+		if (c[i].sockfd != 0)
+			continue;
 
-			init_queue(&c[i].req_queue);
-			if (c[i].req_queue.req == NULL)
-				break;
-			pr_debug(
-				VERBOSE,
-				"init queue for socket file descriptor %d\n",
-				sockfd
-			);
+		c[i].raw_req.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
+		c[i].raw_res.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
+		/*
+		* do not push current connection to the pool
+		* if we fail to allocate some memory
+		*/
+		if (c[i].raw_req.raw_bytes == NULL || c[i].raw_res.raw_bytes == NULL) {
+			void *to_free = (c[i].raw_req.raw_bytes != NULL)
+				? c[i].raw_req.raw_bytes
+				: c[i].raw_res.raw_bytes;
 
-			pr_debug(
-				DEBUG,
-				"new socket file descriptor is registered to the pool: %d\n",
-				sockfd
-			);
-			c[i].sockfd = sockfd;
-			c[i].raw_req.cap = DEFAULT_RAW_CAP;
-			c[i].raw_res.cap = DEFAULT_RAW_CAP;
-
-			occupied_pool++;
+			/* if both null, it is still safe to call free */
+			free(to_free);
 			break;
 		}
+
+		init_queue(&c[i].req_queue);
+		if (c[i].req_queue.req == NULL)
+			break;
+		pr_debug(
+			VERBOSE,
+			"init queue for sockfd descriptor %d\n",
+			sockfd
+		);
+
+		pr_debug(
+			DEBUG,
+			"new sockfd %d descriptor is registered to the pool\n",
+			sockfd
+		);
+		c[i].sockfd = sockfd;
+		c[i].raw_req.cap = DEFAULT_RAW_CAP;
+		c[i].raw_res.cap = DEFAULT_RAW_CAP;
+
+		occupied_pool++;
+		break;
 	}
 }
 
@@ -219,7 +220,7 @@ static void unwatch_sockfd(struct http_ctx *h)
 {
 	pr_debug(
 		DEBUG,
-		"socket file descriptor is unregistered from the pool: %d\n",
+		"sockfd descriptor %d is unregistered from the pool\n",
 		h->sockfd
 	);
 	h->sockfd = 0;
@@ -627,13 +628,12 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 	char human_readable_time[26] = {0};
 	generate_current_time(human_readable_time);
 
-	int ret = fprintf(file_log, "[%s]|%s:%d|Host: %s|Method: %s|URI %s|Status: %s\n",
+	int ret = fprintf(
+		file_log,
+		"[%s]|%s:%d|Host: %s|Method: %s|URI %s|Status: %s\n",
 		human_readable_time,
 		h->ip_addr, h->port_addr,
-		req->host,
-		req->method,
-		req->uri,
-		req->response_code
+		req->host, req->method, req->uri, req->response_code
 	);
 	pr_debug(VERBOSE, "URI will be freed: %p\n", req->uri);
 	free(req->uri);
@@ -659,6 +659,8 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 		unwatch_sockfd(h);
 		return;
 	}
+
+	pr_debug(VERBOSE, "parsing HTTP response\n");
 
 	pr_debug(VERBOSE, "dequeue request...\n");
 	struct http_req *req = front(&h->req_queue);
@@ -693,7 +695,7 @@ static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
 
 	pr_debug(
 		VERBOSE,
-		"socket file descriptor %d is connected to %s:%d\n",
+		"sockfd descriptor %d is connected to %s:%d\n",
 		h->sockfd,
 		h->ip_addr,
 		h->port_addr
