@@ -180,13 +180,14 @@ static void advance(struct concated_buf *ptr, size_t len)
 
 static void push_sockfd(int sockfd)
 {
-	struct http_ctx *c = ctx_pool;
+	struct http_ctx **_c = &ctx_pool;
+	struct http_ctx *c = *_c;
 	if (occupied_pool == current_pool_sz) {
 		void *tmp = realloc(c, current_pool_sz * 2);
 		if (tmp == NULL)
 			return;
 		
-		ctx_pool = tmp;
+		*_c = tmp;
 		pr_debug(
 			VERBOSE,
 			"new address is allocated for context pool: %p\n",
