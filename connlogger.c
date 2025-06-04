@@ -539,7 +539,7 @@ static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr,
 	return -EAGAIN;
 }
 
-static int process_body(struct http_ctx *h, struct concated_buf *r)
+static int process_body(struct http_ctx *h, struct concated_buf *r, parser_state s)
 {
 	if (h->is_chunked) {
 		char *separator = strstr(r->raw_bytes, "\r\n");
@@ -556,7 +556,7 @@ static int process_body(struct http_ctx *h, struct concated_buf *r)
 		
 		if (chunk_sz == 0) {
 			advance(r, ascii_hex_len + 2 + chunk_sz + 2);
-			h->state = HTTP_REQ_HDR;
+			h->state = s;
 			h->is_chunked = false;
 			return 0;
 		}
@@ -586,7 +586,7 @@ static int process_body(struct http_ctx *h, struct concated_buf *r)
 		* keep-alive that re-using existing socket
 		* to send multiple HTTP request
 		*/
-		h->state = HTTP_REQ_HDR;
+		h->state = s;
 		h->content_length = 0;
 		return 0;
 	}
@@ -635,7 +635,7 @@ next:
 			goto exit_loop;
 		case HTTP_REQ_BODY:
 			pr_debug(VERBOSE, "parsing request body\n");
-			ret = process_body(h, r);
+			ret = process_body(h, r, HTTP_REQ_HDR);
 			if (ret == -EINVAL)
 				return;
 			else if (ret == -EAGAIN)
@@ -777,7 +777,7 @@ next:
 			goto exit_loop;
 		case HTTP_RES_BODY:
 			pr_debug(VERBOSE, "parsing request body\n");
-			ret = process_body(h, &h->raw_res);
+			ret = process_body(h, &h->raw_res, HTTP_RES_HDR);
 			if (ret == -EINVAL)
 				return;
 			else if (ret == -EAGAIN)
