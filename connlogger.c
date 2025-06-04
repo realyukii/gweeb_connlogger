@@ -470,7 +470,7 @@ static int parse_req_line(char **method, char **end_of_hdr,
 	*end_uri = '\0';
 	end_uri += 1;
 
-	size_t uri_len = strlen(uri);
+	size_t uri_len = end_uri - uri;
 	if (uri_len > MAX_INSANE_URI_LENGTH)
 		return -EINVAL;
 
