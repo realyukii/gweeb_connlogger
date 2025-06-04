@@ -503,13 +503,13 @@ static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr,
 	}
 
 	/* assume it's malformed HTTP header if we can't parse it */
-	if (parse_req_hdr(hdr) < 0) {
+	if (parse_hdr(hdr) < 0) {
 		return -EINVAL;
 	}
 
 	pr_debug(
 		VERBOSE,
-		"parsing request header: %s:%s\n",
+		"parsing request header: %s: %s\n",
 		hdr->key, hdr->value
 	);
 
@@ -537,7 +537,7 @@ static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr,
 	return -EAGAIN;
 }
 
-static int process_body(struct http_ctx *h, struct concat_buf *r)
+static int process_body(struct http_ctx *h, struct concated_buf *r)
 {
 	if (h->is_chunked) {
 		char *separator = strstr(r->raw_bytes, "\r\n");
