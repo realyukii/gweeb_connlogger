@@ -293,6 +293,12 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 	return 0;
 }
 
+static void strtolower(char *str)
+{
+	for (char *p = str; *p; p++)
+		*p = tolower(*p);
+}
+
 static int parse_hdr(struct http_hdr *header)
 {
 	/* iterate over the http header */
@@ -360,12 +366,6 @@ static void advance(struct concated_buf *ptr, size_t len)
 
 	if (ptr->len > 0)
 		memmove(ptr->raw_bytes, ptr->raw_bytes + len, ptr->len);
-}
-
-static void strtolower(char *str)
-{
-	for (char *p = str; *p; p++)
-		*p = tolower(*p);
 }
 
 static int parse_req_line(char **method, char **end_of_hdr, 
@@ -441,8 +441,8 @@ static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr,
 
 	pr_debug(
 		VERBOSE,
-		"parsing request header: %s\n",
-		hdr->key
+		"parsing request header: %s:%s\n",
+		hdr->key, hdr->value
 	);
 
 	if (strcmp(hdr->key, "host") == 0) {
@@ -474,7 +474,7 @@ static int process_body(struct http_ctx *h, struct concat_buf *r)
 	if (h->is_chunked) {
 		char *separator = strstr(r->raw_bytes, "\r\n");
 		/*
-		* some bytes haven't departed yet, short-send?
+		* some bytes haven't departed/arrived yet, short-send?
 		* wait until it completed
 		* or maybe it's a malformed http request
 		*/
@@ -490,7 +490,7 @@ static int process_body(struct http_ctx *h, struct concat_buf *r)
 			return 0;
 		}
 
-		/* some bytes haven't departed yet. */
+		/* some bytes haven't departed/arrived yet. */
 		if (r->len - (ascii_hex_len + 4) < chunk_sz)
 			return -EINVAL;
 
@@ -501,7 +501,7 @@ static int process_body(struct http_ctx *h, struct concat_buf *r)
 		advance(r, ascii_hex_len + 2 + chunk_sz + 2);
 		return -EAGAIN;
 	} else {
-		/* some bytes haven't departed yet */
+		/* some bytes haven't departed/arrived yet */
 		if (r->len < h->content_length)
 			return -EINVAL;
 		advance(r, h->content_length);
