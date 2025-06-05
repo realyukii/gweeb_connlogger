@@ -639,6 +639,8 @@ next:
 			else if (ret == -EAGAIN)
 				continue;
 			goto exit_loop;
+		default:
+			return;
 		}
 	}
 
@@ -786,6 +788,8 @@ next:
 			else if (ret == -EAGAIN)
 				continue;
 			goto exit_loop;
+		default:
+			return;
 		}
 	}
 
