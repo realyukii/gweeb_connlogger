@@ -99,7 +99,7 @@ static void init_queue(struct http_req_queue *q)
 
 static int queue_grow(struct http_req_queue *q, size_t new_cap)
 {
-	void *tmp = realloc(q->req, new_cap);
+	void *tmp = realloc(q->req, new_cap * sizeof(struct http_req));
 	if (tmp == NULL)
 	 	return -1;
 	
