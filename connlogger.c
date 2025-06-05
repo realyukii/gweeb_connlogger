@@ -614,9 +614,9 @@ next:
 			return;
 	}
 
-	pr_debug(VERBOSE, "parsing HTTP request\n");
+	pr_debug(DEBUG, "parsing HTTP request on sockfd %d\n", h->sockfd);
 	pr_debug(
-		VERBOSE,
+		DEBUG,
 		"buffer address: %p\nlength: %ld\ncapacity: %ld\nstate: %d\n",
 		r->raw_bytes, r->len, r->cap, h->state
 	);
@@ -716,9 +716,9 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 	free(req->uri);
 
 	if (ret < 0) {
-		pr_debug(VERBOSE, "failed to write parsed data to the file\n");
+		pr_debug(DEBUG, "failed to write parsed data to the file\n");
 	} else {
-		pr_debug(VERBOSE, "parsed data successfully written to the file\n");
+		pr_debug(DEBUG, "parsed data successfully written to the file\n");
 	}
 }
 
@@ -762,9 +762,9 @@ next:
 			return;
 	}
 
-	pr_debug(VERBOSE, "parsing HTTP response\n");
+	pr_debug(DEBUG, "parsing HTTP response on sockfd %d\n", h->sockfd);
 	pr_debug(
-		VERBOSE,
+		DEBUG,
 		"buffer address: %p\nlength: %ld\ncapacity: %ld\nstate: %d\n",
 		h->raw_res.raw_bytes, h->raw_res.len, h->raw_res.cap, h->state
 	);
@@ -816,7 +816,7 @@ static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
 	}
 
 	pr_debug(
-		VERBOSE,
+		DEBUG,
 		"sockfd %d is connected to %s:%d\n",
 		h->sockfd,
 		h->ip_addr,
