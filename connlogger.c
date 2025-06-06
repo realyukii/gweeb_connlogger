@@ -139,6 +139,53 @@ static int enqueue(struct http_req_queue *q, struct http_req req)
 	return 0;
 }
 
+static void dequeue(struct http_req_queue *q)
+{
+	/* make sure the queue is not empty */
+	if (q->occupied == 0)
+		return;
+
+	q->head = (q->head + 1) % q->capacity;
+	q->occupied--;
+}
+
+static void generate_current_time(char *buf)
+{
+	time_t rawtime;
+	struct tm *timeinfo;
+
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+	/*
+	* the manual says atleast 26 bytes of buf is provided
+	* 24 ascii character + newline + null terminated bytes
+	*/
+	asctime_r(timeinfo, buf);
+	buf[26 - 2] = '\0';
+}
+
+static void write_log(struct http_ctx *h, struct http_req *req)
+{
+	char human_readable_time[26] = {0};
+	generate_current_time(human_readable_time);
+
+	int ret = fprintf(
+		file_log,
+		"[%s]|%s:%d|Host: %s|Method: %s|URI %s|Status: %s\n",
+		human_readable_time,
+		h->ip_addr, h->port_addr,
+		req->host, req->method, req->uri, req->response_code
+	);
+	pr_debug(VERBOSE, "URI will be freed: %p\n", req->uri);
+	free(req->uri);
+
+	if (ret < 0) {
+		pr_debug(DEBUG, "failed to write parsed data to the file\n");
+	} else {
+		pr_debug(DEBUG, "parsed data successfully written to the file\n");
+	}
+}
+
 static int init(void)
 {
 	/* already initialised, skip duplicate init, exit. */
@@ -681,44 +728,6 @@ static struct http_ctx *find_http_ctx(int sockfd)
 	}
 	
 	return h;
-}
-
-static void generate_current_time(char *buf)
-{
-	time_t rawtime;
-	struct tm *timeinfo;
-
-	time(&rawtime);
-	timeinfo = localtime(&rawtime);
-	/*
-	* the manual says atleast 26 bytes of buf is provided
-	* 24 ascii character + newline + null terminated bytes
-	*/
-	asctime_r(timeinfo, buf);
-	buf[26 - 2] = '\0';
-}
-
-static void write_log(struct http_ctx *h, struct http_req *req)
-{
-	char human_readable_time[26] = {0};
-	generate_current_time(human_readable_time);
-
-	// asm volatile("int3");
-	int ret = fprintf(
-		file_log,
-		"[%s]|%s:%d|Host: %s|Method: %s|URI %s|Status: %s\n",
-		human_readable_time,
-		h->ip_addr, h->port_addr,
-		req->host, req->method, req->uri, req->response_code
-	);
-	pr_debug(VERBOSE, "URI will be freed: %p\n", req->uri);
-	free(req->uri);
-
-	if (ret < 0) {
-		pr_debug(DEBUG, "failed to write parsed data to the file\n");
-	} else {
-		pr_debug(DEBUG, "parsed data successfully written to the file\n");
-	}
 }
 
 static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_len)
