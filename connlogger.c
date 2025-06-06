@@ -238,12 +238,12 @@ static void push_sockfd(int sockfd)
 	}
 }
 
-static void unwatch_sockfd(struct http_ctx *h)
+static void unwatch_sockfd(struct http_ctx *h, char *reason)
 {
 	pr_debug(
 		DEBUG,
-		"sockfd %d is unregistered from the pool\n",
-		h->sockfd
+		"sockfd %d is unregistered from the pool: %s\n",
+		h->sockfd, reason
 	);
 	h->sockfd = 0;
 
@@ -296,14 +296,12 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 		memcpy(*b + *append_pos, src, len);
 		*append_pos += len;
 	} else {
-		// asm volatile("int3");
 		/* we don't have enough space in the memory, let's resize it */
 		void *tmp = realloc(*b, buf->cap + incoming_len);
 		if (tmp == NULL) {
 			return -1;
 		}
 		*b = tmp;
-		// asm volatile("int3");
 		memcpy(*b + *append_pos, src, len);
 		*append_pos += len;
 		buf->cap += incoming_len;
@@ -329,6 +327,7 @@ static int parse_hdr(struct http_hdr *header)
 	header->next_line = strstr(header->line, "\r\n");
 	if (header->next_line == NULL)
 		return -1;
+
 	header->key = header->line;
 	header->value = strchr(header->line, ':');
 	if (header->value == NULL)
@@ -596,7 +595,7 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 	http_req_raw *r = &h->raw_req;
 
 	if (concat_buf(buf, r, buf_len) < 0) {
-		unwatch_sockfd(h);
+		unwatch_sockfd(h, "after concat req buf");
 		return;
 	}
 
@@ -608,7 +607,7 @@ next:
 	if (h->state == HTTP_REQ_HDR) {
 		ret = parse_req_line(&method, &end_of_hdr, &hdr, r, &req);
 		if (ret == -EINVAL) {
-			unwatch_sockfd(h);
+			unwatch_sockfd(h, "after parse_req_line");
 			return;
 		} else if (ret == -EAGAIN)
 			return;
@@ -626,7 +625,7 @@ next:
 		case HTTP_REQ_HDR:
 			ret = process_req_hdr(h, &hdr, end_of_hdr, method, &req);
 			if (ret == -EINVAL) {
-				unwatch_sockfd(h);
+				unwatch_sockfd(h, "after process_req_hdr");
 				return;
 			} else if (ret == -EAGAIN)
 				continue;
@@ -740,7 +739,7 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 	}
 
 	if (concat_buf(buf, &h->raw_res, buf_len) < 0) {
-		unwatch_sockfd(h);
+		unwatch_sockfd(h, "after concat res buf");
 		return;
 	}
 
@@ -756,7 +755,7 @@ next:
 
 		ret = parse_res_line(&http_ver, &end_of_hdr, &hdr, &h->raw_res, req);
 		if (ret == -EINVAL) {
-			unwatch_sockfd(h);
+			unwatch_sockfd(h, "after parse_res_line");
 			return;
 		} else if (ret == -EAGAIN)
 			return;
@@ -774,7 +773,7 @@ next:
 		case HTTP_RES_HDR:
 			ret = process_res_hdr(h, &hdr, end_of_hdr, http_ver);
 			if (ret == -EINVAL) {
-				unwatch_sockfd(h);
+				unwatch_sockfd(h, "after process_res_hdr");
 				return;
 			} else if (ret == -EAGAIN)
 				continue;
@@ -817,8 +816,9 @@ static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
 
 	pr_debug(
 		DEBUG,
-		"sockfd %d is connected to %s:%d\n",
+		"sockfd %d with domain %d is connected to %s:%d\n",
 		h->sockfd,
+		(int)addr->sa_family,
 		h->ip_addr,
 		h->port_addr
 	);
@@ -852,6 +852,12 @@ int socket(int domain, int type, int protocol)
 
 	if (ctx_pool == NULL && init() == 0)
 		push_sockfd(ret);
+	else
+		pr_debug(
+			VERBOSE,
+			"failed to push sockfd %d with domain %d\n",
+			ret, domain
+		);
 
 	return ret;
 }
@@ -902,7 +908,7 @@ ssize_t recvfrom(
 		: "a" (__NR_recvfrom),	/* %rax */
 		  "D" (sockfd),		/* %rdi */
 		  "S" (buf),		/* %rsi */
-		  "d" (size),		/* %rdx */
+		  "d" (1),		/* %rdx */
 		  "r" (_f),		/* %r10 */
 		  "r" (_s),		/* %r8 */
 		  "r" (_a)		/* %r9 */
@@ -938,7 +944,7 @@ ssize_t sendto(
 		: "a" (__NR_sendto),	/* %rax */
 		  "D" (sockfd),		/* %rdi */
 		  "S" (buf),		/* %rsi */
-		  "d" (size),		/* %rdx */
+		  "d" (1),		/* %rdx */
 		  "r" (_f),		/* %r10 */
 		  "r" (_d),		/* %r8 */
 		  "r" (_a)		/* %r9 */
@@ -1054,7 +1060,7 @@ int close(int fd)
 
 	struct http_ctx *h = find_http_ctx(fd);
 	if (h != NULL)
-		unwatch_sockfd(h);
+		unwatch_sockfd(h, "after closing the sockfd");
 
 	return ret;
 }
