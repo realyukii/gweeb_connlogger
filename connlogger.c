@@ -402,8 +402,9 @@ static int parse_hdr(struct http_hdr *header)
 	while (*header->value == ' ')
 		header->value++;
 
+	/* ignore any trailing space */
 	char *trailing = header->next_line - 3;
-	if (*trailing == ' ')
+	while (*trailing == ' ')
 		trailing--;
 
 	strtolower(header->key);
