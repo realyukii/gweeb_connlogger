@@ -154,6 +154,7 @@ static void dequeue(struct http_req_queue *q)
 	if (q->occupied == 0)
 		return;
 
+	memset(&q->req[q->head], 0, sizeof(struct http_req));
 	q->head = (q->head + 1) % q->capacity;
 	q->occupied--;
 }
