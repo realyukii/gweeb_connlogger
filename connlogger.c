@@ -321,6 +321,8 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 		h->raw_res.raw_bytes
 	);
 	free(h->raw_res.raw_bytes);
+	free(h->req_queue.req);
+	memset(&h->req_queue, 0, sizeof(struct http_req_queue));
 
 	occupied_pool--;
 }
