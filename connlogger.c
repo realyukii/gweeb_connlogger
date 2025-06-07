@@ -512,7 +512,6 @@ static int process_res_hdr(struct http_ctx *h, struct http_hdr *hdr, struct http
 
 static int parse_req_line(struct http_hdr *hdr, http_req_raw *r, struct http_req *req)
 {
-	// asm volatile ("int3");
 	char *space = strchr(r->raw_bytes, ' ');
 	if (space == NULL && r->len >= MAX_HTTP_METHOD_LEN)
 		space = strchr(r->raw_bytes, '\0');
@@ -694,7 +693,7 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 {
 	int ret;
 	http_req_raw *r = &h->raw_req;
-	struct http_req *req = back(&h->req_queue);
+	struct http_req *req = NULL;
 	struct http_hdr hdr = {0};
 
 	if (concat_buf(buf, r, buf_len) < 0) {
@@ -703,6 +702,7 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 	}
 
 next:
+	req = back(&h->req_queue);
 	if (h->state == HTTP_REQ_LINE) {
 		ret = parse_req_line(&hdr, r, req);
 		if (ret == -EINVAL) {
