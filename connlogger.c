@@ -100,7 +100,7 @@ static FILE *file_log = NULL;
 static void init_queue(struct http_req_queue *q)
 {
 	q->capacity = DEFAULT_REQ_QUEUE_SZ;
-	q->req = malloc(DEFAULT_REQ_QUEUE_SZ * sizeof(struct http_req));
+	q->req = calloc(DEFAULT_REQ_QUEUE_SZ, sizeof(struct http_req));
 }
 
 static int queue_grow(struct http_req_queue *q, size_t new_cap)
@@ -115,8 +115,30 @@ static int queue_grow(struct http_req_queue *q, size_t new_cap)
 	return 0;
 }
 
+static int auto_grow(struct http_req_queue *q)
+{
+	if (q->occupied == q->capacity) {
+		size_t current_cap = q->capacity;
+		size_t new_cap = q->capacity * 2;
+		/* abort the enqueue operation if it fail to re-size */
+		if (queue_grow(q, new_cap) < 0)
+			return -1;
+
+		size_t half = current_cap * sizeof(struct http_req);
+		/* index start from zero, subtract by one */
+		half -= 1 * sizeof(struct http_req);
+		memset(&q->req[current_cap], 0, half);
+	}
+
+	return 0;
+}
+
 static struct http_req *back(struct http_req_queue *q)
 {
+	/* auto re-size if the queue is fully occupied */
+	if (auto_grow(q) < 0)
+		return NULL;
+
 	return &q->req[q->tail];
 }
 
@@ -134,12 +156,8 @@ static struct http_req *front(struct http_req_queue *q)
 static int enqueue(struct http_req_queue *q, struct http_req req)
 {
 	/* if the queue is full, re-size the default size twice */
-	if (q->occupied == q->capacity) {
-		size_t new_cap = q->capacity * 2;
-		/* abort the enqueue operation if it fail to re-size */
-		if (queue_grow(q, new_cap) < 0)
-			return -1;
-	}
+	if (auto_grow(q) < 0)
+		return -1;
 
 	q->req[q->tail] = req;
 	q->tail = (q->tail + 1) % q->capacity;
@@ -587,7 +605,7 @@ static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr, struct http
 	if (hdr->line + 2 == req->end_of_hdr_req) {
 		pr_debug(VERBOSE, "push processed data to the queue\n");
 		if (enqueue(&h->req_queue, *req) < 0)
-			pr_debug(VERBOSE, "warning: failed to push data to queue\n");
+			return -ENOMEM;
 		advance(&h->raw_req, req->end_of_hdr_req - req->begin_req);
 		if (h->is_chunked || h->content_length > 0)
 			h->state = HTTP_REQ_BODY;
@@ -701,6 +719,10 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 
 next:
 	req = back(&h->req_queue);
+	if (req == NULL) {
+		unwatch_sockfd(h, "after back(), failed to get uninitialized req");
+		return;
+	}
 	if (h->state == HTTP_REQ_LINE) {
 		ret = parse_req_line(&hdr, r, req);
 		if (ret == -EINVAL) {
@@ -725,7 +747,11 @@ next:
 			if (ret == -EINVAL) {
 				unwatch_sockfd(h, "after process_req_hdr");
 				return;
-			} else if (ret == -EAGAIN)
+			} else if (ret == -ENOMEM) {
+				unwatch_sockfd(h, "failed to push data to queue");
+				return;
+			}
+			else if (ret == -EAGAIN)
 				continue;
 			goto exit_loop;
 		case HTTP_REQ_BODY:
