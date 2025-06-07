@@ -784,14 +784,8 @@ static struct http_ctx *find_http_ctx(int sockfd)
 static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_len)
 {
 	int ret;
-	struct http_req *req = front(&h->req_queue);
+	struct http_req *req = NULL;
 	struct http_hdr hdr = {0};
-
-	if (req == NULL) {
-		pr_debug(VERBOSE, "failed to get request, queue is empty.\n");
-		unwatch_sockfd(h, "after front()");
-		return;
-	}
 
 	if (buf_len == 0) {
 		/*
@@ -808,6 +802,14 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 	}
 
 next:
+	req = front(&h->req_queue);
+
+	if (req == NULL) {
+		pr_debug(VERBOSE, "failed to get request, queue is empty.\n");
+		unwatch_sockfd(h, "after front()");
+		return;
+	}
+
 	if (h->state == HTTP_RES_LINE) {
 		ret = parse_res_line(&hdr, &h->raw_res, req);
 		if (ret == -EINVAL) {
