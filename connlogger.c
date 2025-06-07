@@ -387,16 +387,15 @@ static int parse_hdr(struct http_hdr *header)
 	if (header->next_line == NULL)
 		return -1;
 
+	*header->next_line = '\0';
+	header->next_line += 2;
+
 	header->key = header->line;
 	header->value = strchr(header->line, ':');
 	if (header->value == NULL)
 		return -1;
 	*header->value = '\0';
 	header->value += 1;
-
-	*header->next_line = '\0';
-	header->next_line += 2;
-	header->line = header->next_line;
 
 	/* ignore any leading space */
 	while (*header->value == ' ')
@@ -408,6 +407,8 @@ static int parse_hdr(struct http_hdr *header)
 		trailing--;
 
 	strtolower(header->key);
+	header->line = header->next_line;
+
 	return 0;
 }
 
