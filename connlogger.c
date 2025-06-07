@@ -472,8 +472,6 @@ static int process_res_hdr(struct http_ctx *h, struct http_hdr *hdr, struct http
 		write_log(h, req);
 		pr_debug(VERBOSE, "dequeue request...\n");
 		dequeue(&h->req_queue);
-		req->begin_res = NULL;
-		req->end_of_hdr_res = NULL;
 		return 0;
 	}
 
