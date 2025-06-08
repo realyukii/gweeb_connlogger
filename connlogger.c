@@ -15,6 +15,7 @@
 #endif
 #define VERBOSE 3
 #define DEBUG 2
+#define FOCUS 1
 #define DEFAULT_REQ_QUEUE_SZ 16
 #define DEFAULT_POOL_SZ 100
 #define DEFAULT_RAW_CAP 1024
@@ -105,7 +106,6 @@ static void init_queue(struct http_req_queue *q)
 
 static int queue_grow(struct http_req_queue *q, size_t new_cap)
 {
-	// asm volatile("int3");
 	void *tmp = realloc(q->req, new_cap * sizeof(struct http_req));
 	if (tmp == NULL)
 	 	return -1;
@@ -222,17 +222,23 @@ static int init(void)
 	const char *log_file = getenv("GWLOG_PATH");
 
 	/* do not init if there's no destination for parsed data to write */
-	if (log_file == NULL)
+	if (log_file == NULL) {
+		pr_debug(DEBUG, "no file path provided in GWLOG_PATH env\n");
 		return -1;
+	}
 
 	file_log = fopen(log_file, "a");
-	if (file_log == NULL)
+	if (file_log == NULL) {
+		pr_debug(DEBUG, "failed to open file %s\n", log_file);
 		return -1;
+	}
 
 	setvbuf(file_log, NULL, _IOLBF, 0);
 	ctx_pool = calloc(DEFAULT_POOL_SZ, sizeof(struct http_ctx));
-	if (ctx_pool == NULL)
+	if (ctx_pool == NULL) {
+		pr_debug(DEBUG, "fail to allocate dynamic memory\n");
 		return -1;
+	}
 
 	pr_debug(
 		DEBUG,
@@ -316,9 +322,9 @@ static void push_sockfd(int sockfd)
 static void unwatch_sockfd(struct http_ctx *h, char *reason)
 {
 	pr_debug(
-		DEBUG,
-		"sockfd %d is unregistered from the pool: %s\n",
-		h->sockfd, reason
+		FOCUS,
+		"sockfd %d (%s) is unregistered from the pool: %s\n",
+		h->sockfd, h->ip_addr, reason
 	);
 	h->sockfd = 0;
 
@@ -712,6 +718,17 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 	struct http_req *req = NULL;
 	struct http_hdr hdr = {0};
 
+	pr_debug(
+		DEBUG,
+		"parsing HTTP request on sockfd %d with buf_len: %d\n",
+		h->sockfd, buf_len
+	);
+	pr_debug(
+		DEBUG,
+		"buffer address: %p\nlength: %ld\ncapacity: %ld\nstate: %d\n",
+		r->raw_bytes, r->len, r->cap, h->state
+	);
+
 	if (concat_buf(buf, r, buf_len) < 0) {
 		unwatch_sockfd(h, "after concat req buf");
 		return;
@@ -732,13 +749,6 @@ next:
 			return;
 		h->state = HTTP_REQ_HDR;
 	}
-
-	pr_debug(DEBUG, "parsing HTTP request on sockfd %d\n", h->sockfd);
-	pr_debug(
-		DEBUG,
-		"buffer address: %p\nlength: %ld\ncapacity: %ld\nstate: %d\n",
-		r->raw_bytes, r->len, r->cap, h->state
-	);
 
 	while (true) {
 		switch (h->state) {
@@ -822,6 +832,16 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 		return;
 	}
 
+	pr_debug(
+		DEBUG,
+		"parsing HTTP response on sockfd %d with buf_len: %d\n",
+		h->sockfd, buf_len
+	);
+	pr_debug(
+		DEBUG,
+		"buffer address: %p\nlength: %ld\ncapacity: %ld\nstate: %d\n",
+		h->raw_res.raw_bytes, h->raw_res.len, h->raw_res.cap, h->state
+	);
 	if (concat_buf(buf, &h->raw_res, buf_len) < 0) {
 		unwatch_sockfd(h, "after concat res buf");
 		return;
@@ -846,13 +866,6 @@ next:
 
 		h->state = HTTP_RES_HDR;
 	}
-
-	pr_debug(DEBUG, "parsing HTTP response on sockfd %d\n", h->sockfd);
-	pr_debug(
-		DEBUG,
-		"buffer address: %p\nlength: %ld\ncapacity: %ld\nstate: %d\n",
-		h->raw_res.raw_bytes, h->raw_res.len, h->raw_res.cap, h->state
-	);
 
 	while (true) {
 		switch (h->state) {
@@ -993,7 +1006,7 @@ ssize_t recvfrom(
 		: "a" (__NR_recvfrom),	/* %rax */
 		  "D" (sockfd),		/* %rdi */
 		  "S" (buf),		/* %rsi */
-		  "d" (1),		/* %rdx */
+		  "d" (size),		/* %rdx */
 		  "r" (_f),		/* %r10 */
 		  "r" (_s),		/* %r8 */
 		  "r" (_a)		/* %r9 */
@@ -1029,7 +1042,7 @@ ssize_t sendto(
 		: "a" (__NR_sendto),	/* %rax */
 		  "D" (sockfd),		/* %rdi */
 		  "S" (buf),		/* %rsi */
-		  "d" (1),		/* %rdx */
+		  "d" (size),		/* %rdx */
 		  "r" (_f),		/* %r10 */
 		  "r" (_d),		/* %r8 */
 		  "r" (_a)		/* %r9 */
