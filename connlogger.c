@@ -471,11 +471,6 @@ static int parse_res_line(struct http_hdr *hdr, http_res_raw *r, struct http_req
 		return -EAGAIN;
 	req->end_of_hdr_res += 4;
 
-	/* TODO:
-	* even though the above already test the http version/http method and
-	* crlf crlf, but malformed HTTP request and response is still possible
-	* in between the string, figure out how to handle it
-	*/
 	char *end_resline = strstr(status_code, "\r\n");
 	char *res_header = end_resline + 2;
 	hdr->line = res_header;
