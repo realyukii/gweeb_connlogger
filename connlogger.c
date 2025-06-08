@@ -256,6 +256,7 @@ static int init(void)
 
 static void advance(struct concated_buf *ptr, size_t len)
 {
+	size_t overall_len = ptr->len;
 	if (len > ptr->len)
 		ptr->len = 0;
 	else
@@ -263,6 +264,8 @@ static void advance(struct concated_buf *ptr, size_t len)
 
 	if (ptr->len > 0)
 		memmove(ptr->raw_bytes, ptr->raw_bytes + len, ptr->len);
+	else
+		memset(ptr->raw_bytes, 0, overall_len);
 }
 
 static void push_sockfd(int sockfd)
