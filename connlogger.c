@@ -43,7 +43,7 @@ typedef enum {
 	HTTP_REQ_LINE = 0,
 	HTTP_REQ_HDR,
 	HTTP_REQ_BODY,
-	HTTP_RES_LINE = 0,
+	HTTP_RES_LINE,
 	HTTP_RES_HDR,
 	HTTP_RES_BODY
 } parser_state;
@@ -89,6 +89,7 @@ struct http_ctx {
 	http_req_raw raw_req;
 	http_res_raw raw_res;
 	parser_state state;
+	parser_state paused_state;
 	size_t content_length;
 	bool is_chunked;
 };
@@ -150,6 +151,11 @@ static struct http_req *front(struct http_req_queue *q)
 	struct http_req *req = &q->req[q->head];
 
 	return req;
+}
+
+static bool isEmpty(struct http_req_queue *q)
+{
+	return q->occupied == 0;
 }
 
 static int enqueue(struct http_req_queue *q, struct http_req req)
@@ -763,6 +769,12 @@ next:
 			}
 			else if (ret == -EAGAIN)
 				continue;
+			/* TODO:
+			* find the way to differentiate whether the next call 
+			* is parse local buffer or remote buffer
+			* the possibilities are whether short send occured or
+			* in normal flow, it should goes into parsing remote buffer
+			*/
 			goto exit_loop;
 		case HTTP_REQ_BODY:
 			pr_debug(VERBOSE, "parsing request body\n");
@@ -771,6 +783,12 @@ next:
 				return;
 			else if (ret == -EAGAIN)
 				continue;
+			/* TODO:
+			* find the way to differentiate whether the next call 
+			* is parse local buffer or remote buffer
+			* the possibilities are whether short send occured or
+			* in normal flow, it should goes into parsing remote buffer
+			*/
 			goto exit_loop;
 		default:
 			return;
@@ -781,8 +799,12 @@ exit_loop:
 	if (r->len > 0)
 		goto next;
 
+	/* initialise uninitialized paused state */
+	if (h->paused_state == 0)
+		h->paused_state = HTTP_RES_LINE;
+
 	/* move to the next state, receiving server respond */
-	h->state = HTTP_RES_LINE;
+	h->state = h->paused_state;
 }
 
 static struct http_ctx *find_http_ctx(int sockfd)
@@ -848,6 +870,13 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 	}
 
 next:
+	if (isEmpty(&h->req_queue)) {
+		if (h->state >= HTTP_RES_LINE)
+			h->paused_state = h->state;
+		h->state = HTTP_REQ_LINE;
+		return;
+	}
+
 	req = front(&h->req_queue);
 
 	if (req == NULL) {
@@ -891,7 +920,7 @@ next:
 	}
 
 exit_loop:
-	if (h->req_queue.occupied > 0 && h->raw_res.len > 0)
+	if (h->raw_res.len > 0)
 		goto next;
 }
 
