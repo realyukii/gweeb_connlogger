@@ -935,7 +935,7 @@ int socket(int domain, int type, int protocol)
 	if (!(type & SOCK_STREAM))
 		return ret;
 
-	if (ctx_pool == NULL && init() == 0)
+	if (init() == 0)
 		push_sockfd(ret);
 	else
 		pr_debug(
