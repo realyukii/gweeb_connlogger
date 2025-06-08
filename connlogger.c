@@ -126,8 +126,6 @@ static int auto_grow(struct http_req_queue *q)
 			return -1;
 
 		size_t half = current_cap * sizeof(struct http_req);
-		/* index start from zero, subtract by one */
-		half -= 1 * sizeof(struct http_req);
 		memset(&q->req[current_cap], 0, half);
 	}
 
