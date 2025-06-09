@@ -796,38 +796,6 @@ exit_loop:
 	h->state = h->paused_state;
 }
 
-static struct http_ctx *find_http_ctx(int sockfd)
-{
-	/*
-	* do not perform lookup if the fd is stdin or stdout
-	* prevent false-positive when dealing with program like nc
-	* save some cpu cycle by stop executing subsequent instruction
-	* and early exit
-	*/
-	if (sockfd == STDIN_FILENO || sockfd == STDOUT_FILENO)
-		return NULL;
-
-	/*
-	* we are not allowed to assume ctx_pool to always be valid
-	* one of the concrete example is when find_http_ctx is called
-	* from close() and the init is not called yet
-	*/
-	if (ctx_pool == NULL)
-		return NULL;
-
-	struct http_ctx *h = NULL;
-	for (size_t i = 0; i < current_pool_sz; i++)
-	{
-		if (ctx_pool[i].sockfd != sockfd)
-			continue;
-
-		h = &ctx_pool[i];
-		break;
-	}
-	
-	return h;
-}
-
 static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_len)
 {
 	int ret;
@@ -938,6 +906,38 @@ static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
 		h->ip_addr,
 		h->port_addr
 	);
+}
+
+static struct http_ctx *find_http_ctx(int sockfd)
+{
+	/*
+	* do not perform lookup if the fd is stdin or stdout
+	* prevent false-positive when dealing with program like nc
+	* save some cpu cycle by stop executing subsequent instruction
+	* and early exit
+	*/
+	if (sockfd == STDIN_FILENO || sockfd == STDOUT_FILENO)
+		return NULL;
+
+	/*
+	* we are not allowed to assume ctx_pool to always be valid
+	* one of the concrete example is when find_http_ctx is called
+	* from close() and the init is not called yet
+	*/
+	if (ctx_pool == NULL)
+		return NULL;
+
+	struct http_ctx *h = NULL;
+	for (size_t i = 0; i < current_pool_sz; i++)
+	{
+		if (ctx_pool[i].sockfd != sockfd)
+			continue;
+
+		h = &ctx_pool[i];
+		break;
+	}
+	
+	return h;
 }
 
 int socket(int domain, int type, int protocol)
