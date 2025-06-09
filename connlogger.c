@@ -1128,14 +1128,6 @@ ssize_t read(int fd, void *buf, size_t count)
 	return ret;
 }
 
-/* TODO: fix broken pipe error
-* bash -c 'for i in {1..800}; do
-  rand=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 8)
-  printf "POST /%s HTTP/1.1\r\nHost: test.local\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nabcde\r\n0\r\n\r\n" "$rand"
-done' > /tmp/req_many.txt
-* throw an error: tr: write error: Broken pipe
-* this only occurs when this shared library is set on LD_PRELOAD
-*/
 ssize_t write(int fd, const void *buf, size_t count)
 {
 	ssize_t ret;
