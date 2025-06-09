@@ -43,7 +43,7 @@ typedef enum {
 	HTTP_REQ_LINE = 0,
 	HTTP_REQ_HDR,
 	HTTP_REQ_BODY,
-	HTTP_RES_LINE,
+	HTTP_RES_LINE = 0,
 	HTTP_RES_HDR,
 	HTTP_RES_BODY
 } parser_state;
@@ -82,9 +82,8 @@ struct http_ctx {
 	struct http_req_queue req_queue;
 	http_req_raw raw_req;
 	http_res_raw raw_res;
-	parser_state state;
-	parser_state paused_state;
-	parser_state paused_req_state;
+	parser_state req_state;
+	parser_state res_state;
 	size_t content_length;
 	bool is_chunked;
 };
@@ -493,9 +492,9 @@ static int process_res_hdr(struct http_ctx *h, struct http_hdr *hdr, struct http
 	if (hdr->line + 2 == req->end_of_hdr_res) {
 		advance(&h->raw_res, req->end_of_hdr_res - req->begin_res);
 		if (h->is_chunked || h->content_length > 0)
-			h->state = HTTP_RES_BODY;
+			h->res_state = HTTP_RES_BODY;
 		else
-			h->state = HTTP_RES_LINE;
+			h->res_state = HTTP_RES_LINE;
 
 		write_log(h, req);
 		pr_debug(VERBOSE, "dequeue request...\n");
@@ -618,9 +617,9 @@ static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr, struct http
 			return -ENOMEM;
 		advance(&h->raw_req, req->end_of_hdr_req - req->begin_req);
 		if (h->is_chunked || h->content_length > 0)
-			h->state = HTTP_REQ_BODY;
+			h->req_state = HTTP_REQ_BODY;
 		else
-			h->state = HTTP_REQ_LINE;
+			h->req_state = HTTP_REQ_LINE;
 		req->begin_req = NULL;
 		req->end_of_hdr_req = NULL;
 		return 0;
@@ -662,7 +661,7 @@ static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr, struct http
 	return -EAGAIN;
 }
 
-static int process_body(struct http_ctx *h, struct concated_buf *r, parser_state s)
+static int process_body(struct http_ctx *h, struct concated_buf *r)
 {
 	if (h->is_chunked) {
 		char *separator = strstr(r->raw_bytes, "\r\n");
@@ -679,7 +678,6 @@ static int process_body(struct http_ctx *h, struct concated_buf *r, parser_state
 		
 		if (chunk_sz == 0) {
 			advance(r, ascii_hex_len + 2 + chunk_sz + 2);
-			h->state = s;
 			h->is_chunked = false;
 			return 0;
 		}
@@ -709,7 +707,6 @@ static int process_body(struct http_ctx *h, struct concated_buf *r, parser_state
 		* keep-alive that re-using existing socket
 		* to send multiple HTTP request
 		*/
-		h->state = s;
 		h->content_length = 0;
 		return 0;
 	}
@@ -723,14 +720,14 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 	struct http_hdr hdr = {0};
 
 	pr_debug(
-		DEBUG,
+		FOCUS,
 		"parsing HTTP request on sockfd %d with buf_len: %d\n",
 		h->sockfd, buf_len
 	);
 	pr_debug(
-		DEBUG,
+		FOCUS,
 		"buffer address: %p\nlength: %ld\ncapacity: %ld\nstate: %d\n",
-		r->raw_bytes, r->len, r->cap, h->state
+		r->raw_bytes, r->len, r->cap, h->req_state
 	);
 
 	if (concat_buf(buf, r, buf_len) < 0) {
@@ -738,28 +735,24 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 		return;
 	}
 
-	/* auto correct the state */
-	if (h->state >= HTTP_RES_LINE)
-		h->state = h->paused_req_state;
-
 next:
 	req = back(&h->req_queue);
 	if (req == NULL) {
 		unwatch_sockfd(h, "after back(), failed to get uninitialized req");
 		return;
 	}
-	if (h->state == HTTP_REQ_LINE) {
+	if (h->req_state == HTTP_REQ_LINE) {
 		ret = parse_req_line(&hdr, r, req);
 		if (ret == -EINVAL) {
 			unwatch_sockfd(h, "after parse_req_line");
 			return;
 		} else if (ret == -EAGAIN)
 			return;
-		h->state = HTTP_REQ_HDR;
+		h->req_state = HTTP_REQ_HDR;
 	}
 
 	while (true) {
-		switch (h->state) {
+		switch (h->req_state) {
 		case HTTP_REQ_HDR:
 			ret = process_req_hdr(h, &hdr, req);
 			if (ret == -EINVAL) {
@@ -774,11 +767,12 @@ next:
 			goto exit_loop;
 		case HTTP_REQ_BODY:
 			pr_debug(VERBOSE, "parsing request body\n");
-			ret = process_body(h, r, HTTP_REQ_LINE);
+			ret = process_body(h, r);
 			if (ret == -EINVAL)
 				return;
 			else if (ret == -EAGAIN)
 				continue;
+			h->req_state = HTTP_REQ_LINE;
 			goto exit_loop;
 		default:
 			return;
@@ -788,12 +782,6 @@ next:
 exit_loop:
 	if (r->len > 0)
 		goto next;
-
-	/* initialise uninitialized paused state */
-	if (h->paused_state == 0)
-		h->paused_state = HTTP_RES_LINE;
-	h->paused_req_state = h->state;
-	h->state = h->paused_state;
 }
 
 static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_len)
@@ -812,14 +800,14 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 	}
 
 	pr_debug(
-		DEBUG,
+		FOCUS,
 		"parsing HTTP response on sockfd %d with buf_len: %d\n",
 		h->sockfd, buf_len
 	);
 	pr_debug(
-		DEBUG,
+		FOCUS,
 		"buffer address: %p\nlength: %ld\ncapacity: %ld\nstate: %d\n",
-		h->raw_res.raw_bytes, h->raw_res.len, h->raw_res.cap, h->state
+		h->raw_res.raw_bytes, h->raw_res.len, h->raw_res.cap, h->res_state
 	);
 	if (concat_buf(buf, &h->raw_res, buf_len) < 0) {
 		unwatch_sockfd(h, "after concat res buf");
@@ -827,12 +815,8 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 	}
 
 next:
-	if (isEmpty(&h->req_queue)) {
-		if (h->state >= HTTP_RES_LINE)
-			h->paused_state = h->state;
-		h->state = HTTP_REQ_LINE;
+	if (isEmpty(&h->req_queue))
 		return;
-	}
 
 	req = front(&h->req_queue);
 
@@ -842,7 +826,7 @@ next:
 		return;
 	}
 
-	if (h->state == HTTP_RES_LINE) {
+	if (h->res_state == HTTP_RES_LINE) {
 		ret = parse_res_line(&hdr, &h->raw_res, req);
 		if (ret == -EINVAL) {
 			unwatch_sockfd(h, "after parse_res_line");
@@ -850,11 +834,11 @@ next:
 		} else if (ret == -EAGAIN)
 			return;
 
-		h->state = HTTP_RES_HDR;
+		h->res_state = HTTP_RES_HDR;
 	}
 
 	while (true) {
-		switch (h->state) {
+		switch (h->res_state) {
 		case HTTP_RES_HDR:
 			ret = process_res_hdr(h, &hdr, req);
 			if (ret == -EINVAL) {
@@ -865,11 +849,12 @@ next:
 			goto exit_loop;
 		case HTTP_RES_BODY:
 			pr_debug(VERBOSE, "parsing response body\n");
-			ret = process_body(h, &h->raw_res, HTTP_RES_LINE);
+			ret = process_body(h, &h->raw_res);
 			if (ret == -EINVAL)
 				return;
 			else if (ret == -EAGAIN)
 				continue;
+			h->res_state = HTTP_RES_LINE;
 			goto exit_loop;
 		default:
 			return;
