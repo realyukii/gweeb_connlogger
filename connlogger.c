@@ -800,7 +800,10 @@ exit_loop:
 	if (h->paused_state == 0)
 		h->paused_state = HTTP_RES_LINE;
 
-	/* move to the next state, receiving server respond */
+	/* TODO:
+	* figure out what is the next state,
+	* receiving server respond or send another bytes
+	* if some of it not departed yet */
 	h->state = h->paused_state;
 }
 
