@@ -84,6 +84,7 @@ struct http_ctx {
 	http_res_raw raw_res;
 	parser_state state;
 	parser_state paused_state;
+	parser_state paused_req_state;
 	size_t content_length;
 	bool is_chunked;
 };
@@ -737,6 +738,10 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 		return;
 	}
 
+	/* auto correct the state */
+	if (h->state >= HTTP_RES_LINE)
+		h->state = h->paused_req_state;
+
 next:
 	req = back(&h->req_queue);
 	if (req == NULL) {
@@ -766,12 +771,6 @@ next:
 			}
 			else if (ret == -EAGAIN)
 				continue;
-			/* TODO:
-			* find the way to differentiate whether the next call 
-			* is parse local buffer or remote buffer
-			* the possibilities are whether short send occured or
-			* in normal flow, it should goes into parsing remote buffer
-			*/
 			goto exit_loop;
 		case HTTP_REQ_BODY:
 			pr_debug(VERBOSE, "parsing request body\n");
@@ -780,12 +779,6 @@ next:
 				return;
 			else if (ret == -EAGAIN)
 				continue;
-			/* TODO:
-			* find the way to differentiate whether the next call 
-			* is parse local buffer or remote buffer
-			* the possibilities are whether short send occured or
-			* in normal flow, it should goes into parsing remote buffer
-			*/
 			goto exit_loop;
 		default:
 			return;
@@ -799,11 +792,7 @@ exit_loop:
 	/* initialise uninitialized paused state */
 	if (h->paused_state == 0)
 		h->paused_state = HTTP_RES_LINE;
-
-	/* TODO:
-	* figure out what is the next state,
-	* receiving server respond or send another bytes
-	* if some of it not departed yet */
+	h->paused_req_state = h->state;
 	h->state = h->paused_state;
 }
 
