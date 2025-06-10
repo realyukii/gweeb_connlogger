@@ -336,41 +336,6 @@ static void strtolower(char *str)
 		*p = tolower(*p);
 }
 
-static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_len)
-{
-}
-
-static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_len)
-{
-}
-
-static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
-{
-	struct sockaddr_in *in = (void *)addr;
-	struct sockaddr_in6 *in6 = (void *)addr;
-
-	switch (addr->sa_family) {
-	case AF_INET:
-		inet_ntop(AF_INET, &in->sin_addr, h->ip_addr, INET_ADDRSTRLEN);
-		h->port_addr = ntohs(in->sin_port);
-		break;
-
-	case AF_INET6:
-		inet_ntop(AF_INET6, &in6->sin6_addr, h->ip_addr, INET6_ADDRSTRLEN);
-		h->port_addr = ntohs(in6->sin6_port);
-		break;
-	}
-
-	pr_debug(
-		DEBUG,
-		"sockfd %d with domain %d is connected to %s:%d\n",
-		h->sockfd,
-		(int)addr->sa_family,
-		h->ip_addr,
-		h->port_addr
-	);
-}
-
 static struct http_ctx *find_http_ctx(int sockfd)
 {
 	/*
@@ -401,6 +366,47 @@ static struct http_ctx *find_http_ctx(int sockfd)
 	}
 	
 	return h;
+}
+
+static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
+{
+	struct http_ctx *h = find_http_ctx(fd);
+	if (h == NULL)
+		return;
+}
+
+static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
+{
+	struct http_ctx *h = find_http_ctx(fd);
+	if (h == NULL)
+		return;
+}
+
+static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
+{
+	struct sockaddr_in *in = (void *)addr;
+	struct sockaddr_in6 *in6 = (void *)addr;
+
+	switch (addr->sa_family) {
+	case AF_INET:
+		inet_ntop(AF_INET, &in->sin_addr, h->ip_addr, INET_ADDRSTRLEN);
+		h->port_addr = ntohs(in->sin_port);
+		break;
+
+	case AF_INET6:
+		inet_ntop(AF_INET6, &in6->sin6_addr, h->ip_addr, INET6_ADDRSTRLEN);
+		h->port_addr = ntohs(in6->sin6_port);
+		break;
+	}
+
+	pr_debug(
+		DEBUG,
+		"sockfd %d with domain %d is connected to %s:%d\n",
+		h->sockfd,
+		(int)addr->sa_family,
+		h->ip_addr,
+		h->port_addr
+	);
 }
 
 int socket(int domain, int type, int protocol)
@@ -499,11 +505,7 @@ ssize_t recvfrom(
 		return ret;
 	}
 
-	struct http_ctx *h = find_http_ctx(sockfd);
-	if (h == NULL)
-		return ret;
-
-	handle_parse_remotebuf(h, buf, ret);
+	handle_parse_remotebuf(sockfd, buf, ret);
 
 	return ret;
 }
@@ -536,11 +538,7 @@ ssize_t sendto(
 		return ret;
 	}
 
-	struct http_ctx *h = find_http_ctx(sockfd);
-	if (h == NULL)
-		return ret;
-	
-	handle_parse_localbuf(h, buf, ret);
+	handle_parse_localbuf(sockfd, buf, ret);
 
 	return ret;
 }
@@ -574,12 +572,8 @@ ssize_t read(int fd, void *buf, size_t count)
 		ret = -1;
 		return ret;
 	}
-	
-	struct http_ctx *h = find_http_ctx(fd);
-	if (h == NULL)
-		return ret;
 
-	handle_parse_remotebuf(h, buf, ret);
+	handle_parse_remotebuf(fd, buf, ret);
 
 	return ret;
 }
@@ -604,11 +598,7 @@ ssize_t write(int fd, const void *buf, size_t count)
 		return ret;
 	}
 
-	struct http_ctx *h = find_http_ctx(fd);
-	if (h == NULL)
-		return ret;
-
-	handle_parse_localbuf(h, buf, ret);
+	handle_parse_localbuf(fd, buf, ret);
 
 	return ret;
 }
