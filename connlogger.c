@@ -16,7 +16,7 @@
 #define VERBOSE 3
 #define DEBUG 2
 #define FOCUS 1
-#define DEFAULT_REQ_QUEUE_SZ 16
+#define DEFAULT_REQ_QUEUE_SZ 11000
 #define DEFAULT_POOL_SZ 100
 #define DEFAULT_RAW_CAP 1024
 #define MAX_HTTP_METHOD_LEN 8
@@ -64,6 +64,12 @@ struct http_req {
 	char *end_of_hdr_req;
 	char *end_of_hdr_res;
 	char *uri;
+	struct http_hdr req_hdr;
+	struct http_hdr res_hdr;
+	bool is_chunked_res;
+	bool is_chunked_req;
+	size_t content_length_req;
+	size_t content_length_res;
 };
 
 struct concated_buf {
@@ -84,14 +90,15 @@ struct http_ctx {
 	http_res_raw raw_res;
 	parser_state req_state;
 	parser_state res_state;
-	size_t content_length;
-	bool is_chunked;
 };
 
 static size_t current_pool_sz = DEFAULT_POOL_SZ;
 static size_t occupied_pool = 0;
 static struct http_ctx *ctx_pool = NULL;
 static FILE *file_log = NULL;
+
+
+static int counter = 1;
 
 static void init_queue(struct http_req_queue *q)
 {
@@ -108,6 +115,7 @@ static int queue_grow(struct http_req_queue *q, size_t new_cap)
 	q->req = tmp;
 	q->tail = q->capacity;
 	q->capacity = new_cap;
+	pr_debug(FOCUS, "queue resized: tail = %ld capacity = %ld \n", q->tail, q->capacity);
 	return 0;
 }
 
@@ -145,6 +153,11 @@ static struct http_req *front(struct http_req_queue *q)
 	struct http_req *req = &q->req[q->head];
 
 	return req;
+}
+
+static bool isEmpty(struct http_req_queue *q)
+{
+	return q->occupied == 0;
 }
 
 static int enqueue(struct http_req_queue *q, struct http_req req)
@@ -251,9 +264,10 @@ static void advance(struct concated_buf *ptr, size_t len)
 	else
 		ptr->len -= len;
 
-	if (ptr->len > 0)
+	if (ptr->len > 0) {
 		memmove(ptr->raw_bytes, ptr->raw_bytes + len, ptr->len);
-	else
+		ptr->raw_bytes[ptr->len] = '\0';
+	} else
 		memset(ptr->raw_bytes, 0, overall_len);
 }
 
@@ -278,8 +292,8 @@ static void push_sockfd(int sockfd)
 		if (c[i].sockfd != 0)
 			continue;
 
-		c[i].raw_req.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
-		c[i].raw_res.raw_bytes = calloc(1, DEFAULT_RAW_CAP);
+		c[i].raw_req.raw_bytes = calloc(1, DEFAULT_RAW_CAP + 1);
+		c[i].raw_res.raw_bytes = calloc(1, DEFAULT_RAW_CAP + 1);
 		/*
 		* do not push current connection to the pool
 		* if we fail to allocate some memory
@@ -319,6 +333,7 @@ static void push_sockfd(int sockfd)
 
 static void unwatch_sockfd(struct http_ctx *h, char *reason)
 {
+	pr_debug(FOCUS, "counter: %d\n", counter);
 	pr_debug(
 		FOCUS,
 		"sockfd %d (%s) is unregistered from the pool: %s\n",
@@ -376,7 +391,7 @@ static char *find_method(const char *buf)
 static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 {
 	size_t *append_pos = &buf->len;
-	size_t incoming_len = *append_pos + len;
+	size_t incoming_len = *append_pos + len + 1;
 	char **b = &buf->raw_bytes;
 
 	if (incoming_len <= buf->cap) {
@@ -398,6 +413,7 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 			buf->raw_bytes
 		);
 	}
+	(*b)[buf->len] = '\0';
 
 	return 0;
 }
@@ -410,30 +426,274 @@ static void strtolower(char *str)
 
 static int parse_hdr(struct http_hdr *header)
 {
+	/* iterate over the http header */
+	header->next_line = strstr(header->line, "\r\n");
+	if (header->next_line == NULL)
+		return -1;
+
+	*header->next_line = '\0';
+	header->next_line += 2;
+
+	header->key = header->line;
+	header->value = strchr(header->line, ':');
+	if (header->value == NULL)
+		return -1;
+	*header->value = '\0';
+	header->value += 1;
+
+	/* ignore any leading space */
+	while (*header->value == ' ')
+		header->value++;
+
+	/* ignore any trailing space */
+	char *trailing = header->next_line - 3;
+	while (*trailing == ' ') {
+		*trailing = '\0';
+		trailing--;
+	}
+
+	strtolower(header->key);
+	header->line = header->next_line;
+
 	return 0;
 }
 
-static int parse_res_line(struct http_hdr *hdr, http_res_raw *r, struct http_req *req)
+static int parse_res_line(struct http_ctx *h, struct http_req *req)
 {
+	http_res_raw *r = &h->raw_res;
+	char *space = strchr(r->raw_bytes, ' ');
+	if (space == NULL && r->len >= MAX_HTTP_VER_LEN + 1)
+		space = strchr(r->raw_bytes, '\0');
+
+	/*
+	* try to wait for more buffer, but if we still didn't find
+	* the space after a certain length, we decide to drop
+	* the connection from the pool
+	*/
+	if (r->len < MAX_HTTP_VER_LEN + 1)
+		return -EAGAIN;
+	if (space == NULL)
+		return -EINVAL;
+	*space = '\0';
+
+	char *status_code = space + 1;
+
+	/* make sure it's a HTTP response */
+	req->begin_res = strstr(r->raw_bytes, "HTTP/1.");
+	if (req->begin_res == NULL)
+		return -EINVAL;
+
+	if (r->len < MAX_HTTP_VER_LEN + 4)
+		return -EAGAIN;
+
+	strncpy(req->response_code, status_code, 3);
+
+	/* some bytes haven't arrived yet, wait until it completed */
+	req->end_of_hdr_res = strstr(status_code, "\r\n\r\n");
+	if (req->end_of_hdr_res == NULL)
+		return -EAGAIN;
+	req->end_of_hdr_res += 4;
+	counter++;
+
+	char *end_resline = strstr(status_code, "\r\n");
+	char *res_header = end_resline + 2;
+	req->res_hdr.line = res_header;
+
 	return 0;
 }
 
-static int process_res_hdr(struct http_ctx *h, struct http_hdr *hdr, struct http_req *req)
+static int process_res_hdr(struct http_ctx *h, struct http_req *req)
 {
+	if (req->res_hdr.line + 2 == req->end_of_hdr_res) {
+		advance(&h->raw_res, req->end_of_hdr_res - req->begin_res);
+		write_log(h, req);
+		if (req->is_chunked_res || req->content_length_res > 0)
+			h->res_state = HTTP_RES_BODY;
+		else {
+			pr_debug(VERBOSE, "dequeue request...\n");
+			dequeue(&h->req_queue);
+			h->res_state = HTTP_RES_LINE;
+		}
+
+		// if (req->uri == NULL) {
+		// 	asm volatile("int3");
+		// }
+		memset(&req->res_hdr, 0, sizeof(req->res_hdr));
+		return 0;
+	}
+
+	/* assume it's malformed HTTP header if we can't parse it */
+	if (parse_hdr(&req->res_hdr) < 0) {
+		return -EINVAL;
+	}
+
+	pr_debug(
+		VERBOSE,
+		"parsing response header: %s: %s\n",
+		req->res_hdr.key, req->res_hdr.value
+	);
+
+	if (strcmp(req->res_hdr.key, "content-length") == 0) {
+		/*
+		* if it have content-length but also chunked,
+		* it's malformed HTTP response
+		*/
+		// asm volatile("int3");
+		if (req->is_chunked_res)
+			return -EINVAL;
+		req->content_length_res = atoll(req->res_hdr.value);
+	} else if (strcmp(req->res_hdr.key, "transfer-encoding") == 0) {
+		/*
+		* if it's chunked and have content-length,
+		* it's malformed HTTP response
+		*/
+		if (req->content_length_res > 0)
+			return -EINVAL;
+		if (strstr(req->res_hdr.value, "chunked") != NULL)
+			req->is_chunked_res = true;
+	} else if (strcmp(req->res_hdr.key, "connection") == 0) {
+		// if (strcmp(req->res_hdr.value, "keep-alive")) {
+		// 	asm volatile("int3");
+		// }
+	}
+
+	return -EAGAIN;
 }
 
-static int parse_req_line(struct http_hdr *hdr, http_req_raw *r, struct http_req *req)
+static int parse_req_line(http_req_raw *r, struct http_req *req)
 {
+	char *space = strchr(r->raw_bytes, ' ');
+	if (space == NULL && r->len >= MAX_HTTP_METHOD_LEN)
+		space = strchr(r->raw_bytes, '\0');
+
+	/*
+	* try to wait for more buffer, but if we still didn't find
+	* the space after a certain length, we decide to drop
+	* the connection from the pool
+	*/
+	if (r->len < MAX_HTTP_METHOD_LEN)
+		return -EAGAIN;
+	if (space == NULL)
+		return -EINVAL;
+	*space = '\0';
+
+	/* make sure it's a HTTP request */
+	req->begin_req = find_method(r->raw_bytes);
+	if (req->begin_req == NULL)
+		return -EINVAL;
+
+	strcpy(req->method, req->begin_req);
+
+	char *uri = NULL;
+	uri = space + 1;
+	if (r->len < MAX_HTTP_METHOD_LEN + 2)
+		return -EAGAIN;
+
+	if (uri == NULL)
+		return -EINVAL;
+
+	/* malformed URI if it doesn't start with slash character */
+	if (*uri != '/') {
+		return -EINVAL;
+	}
+
+	if (req->end_of_hdr_req == NULL) {
+		/* some bytes haven't departed yet, wait until it completed */
+		req->end_of_hdr_req = strstr(uri, "\r\n\r\n");
+		if (req->end_of_hdr_req == NULL)
+			return -EAGAIN;
+		req->end_of_hdr_req += 4;
+	}
+
+	char *end_uri = strstr(space + 1, " HTTP/1.");
+	if (end_uri == NULL) {
+		return -EINVAL;
+	}
+	*end_uri = '\0';
+	end_uri += 1;
+
+	size_t uri_len = end_uri - uri;
+	if (uri_len > MAX_INSANE_URI_LENGTH) {
+		return -EINVAL;
+	}
+
+	req->uri = malloc(uri_len);
+	/*
+	* abort the subsequent operation when we fail to allocate
+	* dynamic memory for uri
+	*/
+	if (req->uri == NULL) {
+		return -EINVAL;
+	}
+	memcpy(req->uri, uri, uri_len);
+
+	char *end_reqline = strstr(end_uri, "\r\n");
+	char *req_header = end_reqline + 2;
+	req->req_hdr.line = req_header;
+
 	return 0;
 }
 
-static int process_req_hdr(struct http_ctx *h, struct http_hdr *hdr, struct http_req *req)
+static int process_req_hdr(struct http_ctx *h, struct http_req *req)
 {
+	if (req->req_hdr.line + 2 == req->end_of_hdr_req) {
+		if (enqueue(&h->req_queue, *req) < 0)
+			return -ENOMEM;
+		advance(&h->raw_req, req->end_of_hdr_req - req->begin_req);
+		if (req->is_chunked_req || req->content_length_req > 0)
+			h->req_state = HTTP_REQ_BODY;
+		else
+			h->req_state = HTTP_REQ_LINE;
+		req->begin_req = NULL;
+		req->end_of_hdr_req = NULL;
+		memset(&req->req_hdr, 0, sizeof(req->req_hdr));
+		return 0;
+	}
+
+	/* assume it's malformed HTTP header if we can't parse it */
+	if (parse_hdr(&req->req_hdr) < 0) {
+		return -EINVAL;
+	}
+
+	pr_debug(
+		VERBOSE,
+		"parsing request header: %s: %s\n",
+		req->req_hdr.key, req->req_hdr.value
+	);
+
+	if (strcmp(req->req_hdr.key, "host") == 0) {
+		strcpy(req->host, req->req_hdr.value);
+	} else if (strcmp(req->req_hdr.key, "content-length") == 0) {
+		/*
+		* if it have content-length but also chunked,
+		* it's malformed HTTP request
+		*/
+		if (req->is_chunked_req)
+			return -EINVAL;
+		req->content_length_req = atoll(req->req_hdr.value);
+	} else if (strcmp(req->req_hdr.key, "transfer-encoding") == 0) {
+		/*
+		* if it's chunked and have content-length,
+		* it's malformed HTTP request
+		*/
+		if (req->content_length_req > 0)
+			return -EINVAL;
+		if (strstr(req->req_hdr.value, "chunked") != NULL) {
+			req->is_chunked_req = true;
+		}
+	} else if (strcmp(req->req_hdr.key, "connection") == 0) {
+		// if (strcmp(req->req_hdr.value, "keep-alive")) {
+		// 	asm volatile("int3");
+		// }
+	}
+
+	return -EAGAIN;
 }
 
-static int process_body(struct http_ctx *h, struct concated_buf *r)
+static int process_body(struct concated_buf *r,
+			bool *is_chunked, size_t *content_length)
 {
-	if (h->is_chunked) {
+	if (*is_chunked) {
 		char *separator = strstr(r->raw_bytes, "\r\n");
 		/*
 		* some bytes haven't departed/arrived yet, short-send?
@@ -442,13 +702,16 @@ static int process_body(struct http_ctx *h, struct concated_buf *r)
 		*/
 		if (separator == NULL)
 			return -EINVAL;
-		*separator = '\0';
 		int ascii_hex_len = strlen(r->raw_bytes);
 		size_t chunk_sz = strtoull(r->raw_bytes, NULL, 16);
 		
+		if (r->len < chunk_sz + 2)
+			return -EINVAL;
+
+		*separator = '\0';
 		if (chunk_sz == 0) {
 			advance(r, ascii_hex_len + 2 + chunk_sz + 2);
-			h->is_chunked = false;
+			*is_chunked = false;
 			return 0;
 		}
 
@@ -464,10 +727,20 @@ static int process_body(struct http_ctx *h, struct concated_buf *r)
 		return -EAGAIN;
 	} else {
 		/* some bytes haven't departed/arrived yet */
-		if (r->len < h->content_length)
+		if (r->len < *content_length)
 			return -EINVAL;
-		advance(r, h->content_length);
-		h->content_length = 0;
+		advance(r, *content_length);
+
+		/*
+		* completed body.
+		* after fully receive body content,
+		* try to lookup for another header if any.
+		* 
+		* handle scenario like HTTP pipeline or
+		* keep-alive that re-using existing socket
+		* to send multiple HTTP request
+		*/
+		*content_length = 0;
 		return 0;
 	}
 }
@@ -477,7 +750,6 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 	int ret;
 	http_req_raw *r = &h->raw_req;
 	struct http_req *req = NULL;
-	struct http_hdr hdr = {0};
 
 	pr_debug(
 		DEBUG,
@@ -498,18 +770,45 @@ static void handle_parse_localbuf(struct http_ctx *h, const void *buf, int buf_l
 next:
 	req = back(&h->req_queue);
 	if (req == NULL) {
-		unwatch_sockfd(h, "failed to get uninitialized req");
+		unwatch_sockfd(h, "after back(), failed to get uninitialized req");
 		return;
 	}
-
 	if (h->req_state == HTTP_REQ_LINE) {
+		ret = parse_req_line(r, req);
+		if (ret == -EINVAL) {
+			unwatch_sockfd(h, "after parse_req_line");
+			return;
+		} else if (ret == -EAGAIN)
+			return;
+		h->req_state = HTTP_REQ_HDR;
 	}
 
 	while (true) {
 		switch (h->req_state) {
 		case HTTP_REQ_HDR:
+			ret = process_req_hdr(h, req);
+			if (ret == -EINVAL) {
+				unwatch_sockfd(h, "after process_req_hdr");
+				return;
+			} else if (ret == -ENOMEM) {
+				unwatch_sockfd(h, "failed to push data to queue");
+				return;
+			}
+			else if (ret == -EAGAIN)
+				continue;
 			goto exit_loop;
 		case HTTP_REQ_BODY:
+			pr_debug(VERBOSE, "parsing request body\n");
+			ret = process_body(
+				r,
+				&req->is_chunked_req,
+				&req->content_length_req
+			);
+			if (ret == -EINVAL)
+				return;
+			else if (ret == -EAGAIN)
+				continue;
+			h->req_state = HTTP_REQ_LINE;
 			goto exit_loop;
 		default:
 			return;
@@ -525,7 +824,6 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 {
 	int ret;
 	struct http_req *req = NULL;
-	struct http_hdr hdr = {0};
 
 	if (buf_len == 0) {
 		/*
@@ -552,20 +850,56 @@ static void handle_parse_remotebuf(struct http_ctx *h, const void *buf, int buf_
 	}
 
 next:
+	// if (isEmpty(&h->req_queue)) {
+	// 	pr_debug(VERBOSE, "request queue is empty.");
+	// 	return;
+	// }
+
 	req = front(&h->req_queue);
 
 	if (req == NULL) {
-		unwatch_sockfd(h, "failed to get request, queue is empty.");
+		pr_debug(VERBOSE, "failed to get request, queue is empty.\n");
+		unwatch_sockfd(h, "after front()");
 		return;
 	}
 
 	if (h->res_state == HTTP_RES_LINE) {
+		ret = parse_res_line(h, req);
+		if (ret == -EINVAL) {
+			asm volatile ("int3");
+			unwatch_sockfd(h, "after parse_res_line");
+			return;
+		} else if (ret == -EAGAIN)
+			return;
+
+		h->res_state = HTTP_RES_HDR;
 	}
 
 	while (true) {
 		switch (h->res_state) {
 		case HTTP_RES_HDR:
+			ret = process_res_hdr(h, req);
+			if (ret == -EINVAL) {
+				unwatch_sockfd(h, "after process_res_hdr");
+				return;
+			} else if (ret == -EAGAIN)
+				continue;
+			goto exit_loop;
 		case HTTP_RES_BODY:
+			pr_debug(VERBOSE, "parsing response body\n");
+			ret = process_body(
+				&h->raw_res,
+				&req->is_chunked_res,
+				&req->content_length_res
+			);
+			if (ret == -EINVAL)
+				return;
+			else if (ret == -EAGAIN)
+				continue;
+			h->res_state = HTTP_RES_LINE;
+			pr_debug(VERBOSE, "dequeue request...\n");
+			dequeue(&h->req_queue);
+			goto exit_loop;
 		default:
 			return;
 		}
@@ -791,10 +1125,9 @@ ssize_t read(int fd, void *buf, size_t count)
 {
 	ssize_t ret;
 	
-	/* test short recv on nc program */
 	struct http_ctx *h = find_http_ctx(fd);
 	if (h) {
-		// count = 1;
+		count = 10;
 	}
 	asm volatile (
 		"syscall"
@@ -823,12 +1156,10 @@ ssize_t write(int fd, const void *buf, size_t count)
 {
 	ssize_t ret;
 
-	/* test partial send on nc program */
 	struct http_ctx *h = find_http_ctx(fd);
 	if (h) {
-		// count = 1;
+		count = 10;
 	}
-
 	asm volatile (
 		"syscall"
 		: "=a" (ret)
@@ -844,6 +1175,7 @@ ssize_t write(int fd, const void *buf, size_t count)
 		ret = -1;
 		return ret;
 	}
+
 	if (h == NULL)
 		return ret;
 
