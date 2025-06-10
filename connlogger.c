@@ -55,21 +55,36 @@ struct http_hdr {
 	char *next_line;
 };
 
+struct http_res {
+	/* response status code */
+	char status_code[4];
+	/* parsing context of response header */
+	struct http_hdr hdr;
+	/* indicate the trafer-encoding is chunked */
+	bool is_chunked;
+	/* a body's content length */
+	size_t content_length;
+	/* a pointer to the concated buffer */
+	char *end_of_hdr;
+};
+
 struct http_req {
+	/* http method */
 	char method[MAX_HTTP_METHOD_LEN];
+	/* host name */
 	char host[MAX_HOST_LEN];
-	char response_code[4];
-	char *begin_req;
-	char *begin_res;
-	char *end_of_hdr_req;
-	char *end_of_hdr_res;
+	/* a pointer to the concated buffer */
+	char *end_of_hdr;
+	/* a pointer to the malloc'ed buffer */
 	char *uri;
-	struct http_hdr req_hdr;
-	struct http_hdr res_hdr;
-	bool is_chunked_res;
-	bool is_chunked_req;
-	size_t content_length_req;
-	size_t content_length_res;
+	/* parsing context of request header */
+	struct http_hdr hdr;
+	/* indicate the trafer-encoding is chunked */
+	bool is_chunked;
+	/* a body's content length */
+	size_t content_length;
+	/* corresponding response  */
+	struct http_res res;
 };
 
 struct concated_buf {
@@ -122,7 +137,7 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 		"[%s]|%s:%d|Host: %s|Method: %s|URI %s|Status: %s\n",
 		human_readable_time,
 		h->ip_addr, h->port_addr,
-		req->host, req->method, req->uri, req->response_code
+		req->host, req->method, req->uri, req->res.status_code
 	);
 	pr_debug(VERBOSE, "URI will be freed: %p\n", req->uri);
 	free(req->uri);
