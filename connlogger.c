@@ -88,8 +88,13 @@ struct http_req {
 };
 
 struct concated_buf {
+	/* concated buffer */
 	char *raw_bytes;
+	/* current length of buffer*/
 	size_t len;
+	/* offset of processed buffer */
+	size_t off;
+	/* the capacity it can hold */
 	size_t cap;
 };
 
