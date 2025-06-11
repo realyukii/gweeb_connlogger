@@ -678,6 +678,7 @@ static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
 			pr_debug(FOCUS, "missing LF after CR\n");
 			return -EINVAL;
 		}
+		off += 1;
 
 		while (is_whitespace(*key)) {
 			key_len--;
@@ -700,6 +701,7 @@ static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
 			val_len--;
 			tmp--;
 		}
+		raw_buf->off += off;
 
 		/* add the parsed key-value pair to the list */
 		ret = add_hdr(&q->hdr_list, key, value, key_len, val_len);
