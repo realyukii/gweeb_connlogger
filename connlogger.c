@@ -545,6 +545,19 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 	if (memcmp(&buf[off], "HTTP/1.", 7))
 		return -EINVAL;
 
+	off += 7;
+	/* only support HTTP/1.1 and HTTP/1.0 */
+	if (buf[off] != '0' && buf[off] != '1')
+		return -EINVAL;
+	
+	if (off + 2 > len)
+		return -EAGAIN;
+	off += 1;
+
+	/* expect a linebreak */
+	if (memcmp(&buf[off], "\r\n", 2))
+		return -EINVAL;
+
 	raw_buf->off += off;
 	return 0;
 }
