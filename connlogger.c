@@ -32,11 +32,8 @@ do {							\
 } while (0)
 
 struct http_req_queue {
-	size_t head;
-	size_t tail;
-	size_t capacity;
-	size_t occupied;
-	struct http_req *req;
+	struct http_req *head;
+	struct http_req *tail;
 };
 
 typedef enum {
@@ -87,6 +84,8 @@ struct http_req {
 	size_t content_length;
 	/* corresponding response  */
 	struct http_res res;
+	/* a pointer to next http_req on the list */
+	struct http_req *next;
 };
 
 struct concated_buf {
@@ -118,6 +117,41 @@ static size_t current_pool_sz = DEFAULT_POOL_SZ;
 static size_t occupied_pool = 0;
 static struct http_ctx *ctx_pool = NULL;
 static FILE *file_log = NULL;
+
+static struct http_req *allocate_req(void)
+{
+	struct http_req *r = calloc(1, sizeof(*r));
+
+	return r;
+}
+
+static void enqueue(struct http_req_queue *q, struct http_req *r)
+{
+	if (!q->head)
+		/* initialize empty queue */
+		q->tail = q->head = r;
+	else {
+		/* grow the queue */
+		q->tail->next = r;
+		q->tail = r;
+	}
+}
+
+static void dequeue(struct http_req_queue *q)
+{
+	struct http_req *r = q->head;
+	
+	/* queue is empty */
+	if (!r)
+		return;
+
+	q->head = q->head->next;
+	if (!q->head)
+		q->tail = NULL;
+
+	/* TODO: clean-up other stuff if any */
+	free(r);
+}
 
 static void generate_current_time(char *buf)
 {
