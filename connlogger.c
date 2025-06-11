@@ -40,10 +40,12 @@ struct http_req_queue {
 };
 
 typedef enum {
-	HTTP_REQ_LINE = 0,
+	HTTP_REQ_INIT = 0,
+	HTTP_REQ_LINE,
 	HTTP_REQ_HDR,
 	HTTP_REQ_BODY,
-	HTTP_RES_LINE = 0,
+	HTTP_RES_INIT = 0,
+	HTTP_RES_LINE,
 	HTTP_RES_HDR,
 	HTTP_RES_BODY
 } parser_state;
