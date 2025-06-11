@@ -338,23 +338,36 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 	occupied_pool--;
 }
 
-static char *find_method(const char *buf)
-{
-	const char *http_methods[] = {
-		"GET", "POST", "HEAD", "PATCH", "PUT",
-		"DELETE", "OPTIONS", "CONNECT", "TRACE", NULL
-	};
-	const char **ptr = http_methods;
-	char *method_ptr = NULL;
-	while (*ptr) {
-		method_ptr = strstr(buf, *ptr);
-		if (method_ptr != NULL)
-			break;
-		ptr++;
-	}
+enum HTTP_METHODS {
+	HTTP_UNKNOWN,
+	HTTP_GET,
+	HTTP_POST,
+	HTTP_HEAD,
+	HTTP_PATCH,
+	HTTP_PUT,
+	HTTP_DELETE,
+	HTTP_OPTIONS,
+	HTTP_CONNECT,
+	HTTP_TRACE
+};
 
-	return method_ptr;
-}
+struct http_method {
+	const char *name;
+	size_t len;
+	enum HTTP_METHODS id;
+};
+
+static const struct http_method methods[] = {
+	{ "GET",	3,	HTTP_GET },
+	{ "POST",	4,	HTTP_POST },
+	{ "HEAD",	4,	HTTP_HEAD },
+	{ "PATCH",	5,	HTTP_PATCH },
+	{ "PUT",	3,	HTTP_PUT },
+	{ "DELETE",	6,	HTTP_DELETE},
+	{ "OPTIONS",	7,	HTTP_OPTIONS },
+	{ "CONNECT",	7,	HTTP_CONNECT },
+	{ "TRACE",	5,	HTTP_TRACE }
+};
 
 static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 {
@@ -392,6 +405,11 @@ static void strtolower(char *str)
 		*p = tolower(*p);
 }
 
+static size_t low_len(size_t a, size_t b)
+{
+	return a < b ? a : b;
+}
+
 static struct http_ctx *find_http_ctx(int sockfd)
 {
 	/*
@@ -422,6 +440,28 @@ static struct http_ctx *find_http_ctx(int sockfd)
 	}
 	
 	return h;
+}
+
+static void parse_req_line(struct http_req *r, http_req_raw *raw_buf)
+{
+	enum HTTP_METHODS m;
+	const char *buf = raw_buf->raw_bytes + raw_buf->off;
+	size_t blen = raw_buf->len, nr_m = sizeof(methods) / sizeof(methods[0]);
+
+	m = HTTP_UNKNOWN;
+	for (size_t i = 0; i < nr_m; i++) {
+		const struct http_method method = methods[i];
+		size_t cmplen, mlen = method.len;
+
+		cmplen = low_len(mlen, blen);
+		/* non-zero value indicate mismatch, cont to next method */
+		if (memcmp(buf, method.name, cmplen))
+			continue;
+
+		/* the method is now matched */
+		m = method.id;
+	}
+
 }
 
 static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
