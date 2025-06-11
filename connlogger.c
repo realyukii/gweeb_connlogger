@@ -579,6 +579,67 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 	return 0;
 }
 
+static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
+{
+	char *buf = &raw_buf->raw_bytes[raw_buf->off];
+	size_t len, off;
+
+	len = raw_buf->len - raw_buf->off;
+	if (!len)
+		return -EAGAIN;
+
+	off = 0;
+	while (true) {
+		char *key, *value;
+		size_t key_len, val_len;
+
+		key = &buf[off];
+		key_len = 0;
+		/* parsing key of http header */
+		while (true) {
+			if (off >= len)
+				return -EAGAIN;
+
+			if (buf[off] == ':') {
+				off += 1;
+				break;
+			}
+			
+			off++;
+			key_len++;
+		}
+
+		value = &buf[off];
+		val_len = 0;
+		/* parsing value of http header */
+		while (true) {
+			if (off >= len)
+				return -EAGAIN;
+
+			if (buf[off] == '\r' || buf[off] == '\n')
+				break;
+
+			val_len++;
+			off++;
+		}
+
+		if (buf[off] == '\r') {
+			if (++off >= len)
+				return -EAGAIN;
+		}
+
+		if (buf[off] != '\n') {
+			pr_debug(FOCUS, "missing LF after CR\n");
+			return -EINVAL;
+		}
+
+		/* add the parsed key-value pair to the list */
+		asm volatile("int3");
+		break;
+	}
+	return 0;
+}
+
 static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 {
 	struct http_req *r;
