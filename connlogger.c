@@ -511,7 +511,7 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 	* very rare scenario but still possible
 	* where the buffer is shorted 1 byte
 	*/
-	if (off > len)
+	if (off >= len)
 		return -EAGAIN;
 
 	if (m != HTTP_CONNECT && m != HTTP_OPTIONS) {
@@ -523,9 +523,8 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 	}
 
 	uri_len = 0;
-	/* loop until it find white space while incrementing uri_len */
 	while(true) {
-		if (off > len)
+		if (off >= len)
 			return -EAGAIN;
 		
 		if (is_whitespace(buf[off]))
@@ -538,7 +537,7 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 	}
 
 	off += 1;
-	if (off + 7 > len)
+	if (off + 7 >= len)
 		return -EAGAIN;
 
 	static const char http_ver[] = "HTTP/1.";
@@ -549,8 +548,8 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 	/* only support HTTP/1.1 and HTTP/1.0 */
 	if (buf[off] != '0' && buf[off] != '1')
 		return -EINVAL;
-	
-	if (off + 2 > len)
+
+	if (off + 2 >= len)
 		return -EAGAIN;
 	off += 1;
 
