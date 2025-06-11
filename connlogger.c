@@ -408,6 +408,24 @@ static size_t low_len(size_t a, size_t b)
 	return a < b ? a : b;
 }
 
+/*
+* read more on what is considered as white space defined by RFC in stackoverflow:
+* https://stackoverflow.com/q/50179659/22382954
+*/
+static bool is_whitespace(char c)
+{
+	return c == ' ' || c == '\t';
+}
+
+/*
+* read more on what are visible ascii character defined by RFC in stackoverflow:
+* https://stackoverflow.com/q/52336695/22382954
+*/
+static bool is_vchar(char c)
+{
+	return c >= 0x21 && c <= 0x7E;
+}
+
 static struct http_ctx *find_http_ctx(int sockfd)
 {
 	/*
