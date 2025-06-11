@@ -558,6 +558,7 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 	if (memcmp(&buf[off], "\r\n", 2))
 		return -EINVAL;
 
+	off += 2;
 	raw_buf->off += off;
 	return 0;
 }
