@@ -553,13 +553,15 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 {
 	struct http_req *r;
 	struct http_ctx *h;
+	http_req_raw *raw;
 	int ret;
 
 	h = find_http_ctx(fd);
 	if (h == NULL)
 		return;
+	raw = &h->raw_req;
 
-	concat_buf(buf, &h->raw_req, buf_len);
+	concat_buf(buf, raw, buf_len);
 
 	if (h->req_state == HTTP_REQ_INIT) {
 		r = allocate_req();
@@ -575,7 +577,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 		if (!r)
 			goto drop_sockfd;
 
-		ret = parse_req_line(r, &h->raw_req);
+		ret = parse_req_line(r, raw);
 		if (ret == -EINVAL)
 			goto drop_sockfd;
 		else if (ret == -EAGAIN)
