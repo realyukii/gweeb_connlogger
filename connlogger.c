@@ -462,7 +462,7 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 {
 	enum HTTP_METHODS m;
 	const char *buf = raw_buf->raw_bytes + raw_buf->off;
-	size_t len, nr_m, off;
+	size_t uri_len, len, nr_m, off;
 
 	/* offset */
 	off = 0;
@@ -522,6 +522,8 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 			return -EINVAL;
 	}
 
+	uri_len = 0;
+	/* loop until it find white space while incrementing uri_len */
 	while(true) {
 		if (off > len)
 			return -EAGAIN;
@@ -532,6 +534,7 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 		if (!is_vchar(buf[off]))
 			return -EINVAL;
 		off++;
+		uri_len++;
 	}
 
 	off += 1;
