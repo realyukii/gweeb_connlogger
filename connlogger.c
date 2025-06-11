@@ -277,9 +277,6 @@ static void push_sockfd(int sockfd)
 			break;
 		}
 
-		init_queue(&c[i].req_queue);
-		if (c[i].req_queue.req == NULL)
-			break;
 		pr_debug(
 			VERBOSE,
 			"init queue for sockfd %d\n",
