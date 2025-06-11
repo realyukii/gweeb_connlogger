@@ -498,7 +498,7 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 	* very rare scenario but still possible
 	* where the buffer is shorted 1 byte
 	*/
-	if (off > len)
+	if (off >= len)
 		return -EAGAIN;
 
 	if (!is_whitespace(buf[off]))
