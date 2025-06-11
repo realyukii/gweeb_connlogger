@@ -458,33 +458,129 @@ static struct http_ctx *find_http_ctx(int sockfd)
 	return h;
 }
 
-static void parse_req_line(struct http_req *r, http_req_raw *raw_buf)
+static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 {
 	enum HTTP_METHODS m;
 	const char *buf = raw_buf->raw_bytes + raw_buf->off;
-	size_t blen = raw_buf->len, nr_m = sizeof(methods) / sizeof(methods[0]);
+	size_t len, nr_m, off;
+
+	/* offset */
+	off = 0;
+	/* length of unparsed bytes */
+	len = raw_buf->len - raw_buf->off;
+	/* number of methods */
+	nr_m = sizeof(methods) / sizeof(methods[0]);
 
 	m = HTTP_UNKNOWN;
 	for (size_t i = 0; i < nr_m; i++) {
 		const struct http_method method = methods[i];
 		size_t cmplen, mlen = method.len;
 
-		cmplen = low_len(mlen, blen);
+		cmplen = low_len(mlen, len);
 		/* non-zero value indicate mismatch, cont to next method */
 		if (memcmp(buf, method.name, cmplen))
 			continue;
 
-		/* the method is now matched */
+		/* need more bytes to confirm if it's actually HTTP method */
+		if (cmplen < mlen)
+			return -EAGAIN;
+
+		/* now, the method is matched */
 		m = method.id;
+		off += mlen;
+		break;
 	}
 
+	if (m == HTTP_UNKNOWN)
+		return -EINVAL;
+
+	/*
+	* very rare scenario but still possible
+	* where the buffer is shorted 1 byte
+	*/
+	if (off > len)
+		return -EAGAIN;
+
+	if (!is_whitespace(buf[off]))
+		return -EINVAL;
+
+	/* if the next char is not a slash or wildcard treat it as malformed */
+	off += 1;
+	
+	/*
+	* very rare scenario but still possible
+	* where the buffer is shorted 1 byte
+	*/
+	if (off > len)
+		return -EAGAIN;
+
+	if (m != HTTP_CONNECT && m != HTTP_OPTIONS) {
+		if (buf[off] != '/')
+			return -EINVAL;
+	} else {
+		if (buf[off] != '*' || buf[off] != '/')
+			return -EINVAL;
+	}
+
+	while(true) {
+		if (off > len)
+			return -EAGAIN;
+		
+		if (is_whitespace(buf[off]))
+			break;
+
+		if (!is_vchar(buf[off]))
+			return -EINVAL;
+		off++;
+	}
+
+	off += 1;
+	if (off + 7 > len)
+		return -EAGAIN;
+
+	static const char http_ver[] = "HTTP/1.";
+	if (memcmp(&buf[off], "HTTP/1.", 7))
+		return -EINVAL;
+
+	raw_buf->off += off;
+	return 0;
 }
 
 static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 {
-	struct http_ctx *h = find_http_ctx(fd);
+	struct http_req *r;
+	struct http_ctx *h;
+	int ret;
+
+	h = find_http_ctx(fd);
 	if (h == NULL)
 		return;
+
+	concat_buf(buf, &h->raw_req, buf_len);
+
+	if (h->req_state == HTTP_REQ_INIT) {
+		r = allocate_req();
+		if (!r)
+			goto drop_sockfd;
+
+		enqueue(&h->req_queue, r);
+		h->req_state = HTTP_REQ_LINE;
+	}
+
+	if (h->req_state == HTTP_REQ_LINE) {
+		r = h->req_queue.tail;
+		if (!r)
+			goto drop_sockfd;
+
+		ret = parse_req_line(r, &h->raw_req);
+		if (ret == -EINVAL)
+			goto drop_sockfd;
+		else if (ret == -EAGAIN)
+			return;
+	}
+
+drop_sockfd:
+	unwatch_sockfd(h, "failed to parse local buffer");
 }
 
 static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
