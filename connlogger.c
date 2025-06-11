@@ -535,8 +535,10 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 		if (off >= len)
 			return -EAGAIN;
 		
-		if (is_whitespace(buf[off]))
+		if (is_whitespace(buf[off])) {
+			off += 1;
 			break;
+		}
 
 		if (!is_vchar(buf[off])) {
 			pr_debug(FOCUS, "Not a visible character\n");
@@ -546,7 +548,6 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 		uri_len++;
 	}
 
-	off += 1;
 	if (off + 7 >= len)
 		return -EAGAIN;
 
