@@ -491,8 +491,10 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 		break;
 	}
 
-	if (m == HTTP_UNKNOWN)
+	if (m == HTTP_UNKNOWN) {
+		pr_debug(FOCUS, "Method Unknown\n");
 		return -EINVAL;
+	}
 
 	/*
 	* very rare scenario but still possible
@@ -501,8 +503,10 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 	if (off >= len)
 		return -EAGAIN;
 
-	if (!is_whitespace(buf[off]))
+	if (!is_whitespace(buf[off])) {
+		pr_debug(FOCUS, "Expect a whitespace char\n");
 		return -EINVAL;
+	}
 
 	/* if the next char is not a slash or wildcard treat it as malformed */
 	off += 1;
@@ -515,11 +519,15 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 		return -EAGAIN;
 
 	if (m != HTTP_CONNECT && m != HTTP_OPTIONS) {
-		if (buf[off] != '/')
+		if (buf[off] != '/') {
+			pr_debug(FOCUS, "Expect a slash char\n");
 			return -EINVAL;
+		}
 	} else {
-		if (buf[off] != '*' || buf[off] != '/')
+		if (buf[off] != '*' || buf[off] != '/') {
+			pr_debug(FOCUS, "Expect a wildcard or slash char\n");
 			return -EINVAL;
+		}
 	}
 
 	uri_len = 0;
@@ -530,8 +538,10 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 		if (is_whitespace(buf[off]))
 			break;
 
-		if (!is_vchar(buf[off]))
+		if (!is_vchar(buf[off])) {
+			pr_debug(FOCUS, "Not a visible character\n");
 			return -EINVAL;
+		}
 		off++;
 		uri_len++;
 	}
@@ -541,21 +551,27 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 		return -EAGAIN;
 
 	static const char http_ver[] = "HTTP/1.";
-	if (memcmp(&buf[off], "HTTP/1.", 7))
+	if (memcmp(&buf[off], "HTTP/1.", 7)) {
+		pr_debug(FOCUS, "Expect HTTP/1.x version\n");
 		return -EINVAL;
+	}
 
 	off += 7;
 	/* only support HTTP/1.1 and HTTP/1.0 */
-	if (buf[off] != '0' && buf[off] != '1')
+	if (buf[off] != '0' && buf[off] != '1') {
+		pr_debug(FOCUS, "Invalid HTTP version\n");
 		return -EINVAL;
+	}
 
 	if (off + 2 >= len)
 		return -EAGAIN;
 	off += 1;
 
 	/* expect a linebreak */
-	if (memcmp(&buf[off], "\r\n", 2))
+	if (memcmp(&buf[off], "\r\n", 2)) {
+		pr_debug(FOCUS, "Expect a line break after request line");
 		return -EINVAL;
+	}
 
 	off += 2;
 	raw_buf->off += off;
