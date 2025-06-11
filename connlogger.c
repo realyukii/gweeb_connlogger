@@ -326,14 +326,15 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 		h->raw_res.raw_bytes
 	);
 	free(h->raw_res.raw_bytes);
-	while (h->req_queue.occupied > 0) {
-		struct http_req *req = front(&h->req_queue);
-		if (req->uri)
-			free(req->uri);
-		dequeue(&h->req_queue);
-	}
-	free(h->req_queue.req);
-	memset(&h->req_queue, 0, sizeof(struct http_req_queue));
+	// TODO: clean up the queue
+	// while (h->req_queue.occupied > 0) {
+	// 	struct http_req *req = front(&h->req_queue);
+	// 	if (req->uri)
+	// 		free(req->uri);
+	// 	dequeue(&h->req_queue);
+	// }
+	// free(h->req_queue.req);
+	// memset(&h->req_queue, 0, sizeof(struct http_req_queue));
 
 	occupied_pool--;
 }
