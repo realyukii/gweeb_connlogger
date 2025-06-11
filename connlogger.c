@@ -636,6 +636,7 @@ static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
 
 	off = 0;
 	while (true) {
+		int ret;
 		char *key, *value, *tmp;
 		size_t key_len, val_len;
 
@@ -709,10 +710,6 @@ static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
 			pr_debug(FOCUS, "not enough memory\n");
 		if (ret < 0)
 			return -EINVAL;
-		if (ret == -ENOMEM)
-			pr_debug(FOCUS, "not enough memory\n");
-		if (ret < 0)
-			return -EINVAL;
 		break;
 	}
 
@@ -730,6 +727,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 	if (h == NULL)
 		return;
 	raw = &h->raw_req;
+	r = h->req_queue.tail;
 
 	concat_buf(buf, raw, buf_len);
 
@@ -743,7 +741,6 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->req_state == HTTP_REQ_LINE) {
-		r = h->req_queue.tail;
 		if (!r)
 			goto drop_sockfd;
 
@@ -752,8 +749,14 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			goto drop_sockfd;
 		else if (ret == -EAGAIN)
 			return;
+		h->req_state = HTTP_REQ_HDR;
 	}
 
+	if (h->req_state == HTTP_REQ_HDR) {
+		parse_hdr(r, raw);
+	}
+
+	return;
 drop_sockfd:
 	unwatch_sockfd(h, "failed to parse local buffer");
 }
