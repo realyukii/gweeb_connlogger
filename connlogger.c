@@ -464,7 +464,7 @@ static struct http_ctx *find_http_ctx(int sockfd)
 static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 {
 	enum HTTP_METHODS m;
-	const char *buf = raw_buf->raw_bytes + raw_buf->off;
+	const char *uri, *buf = raw_buf->raw_bytes + raw_buf->off;
 	size_t uri_len, len, nr_m, off;
 
 	/* offset */
@@ -534,6 +534,7 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 	}
 
 	uri_len = 0;
+	uri = &buf[off];
 	while(true) {
 		if (off >= len)
 			return -EAGAIN;
@@ -550,6 +551,14 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 		off++;
 		uri_len++;
 	}
+
+	r->uri = malloc(uri_len + 1);
+	if (!r->uri) {
+		pr_debug(FOCUS, "not enough memory\n");
+		return -ENOMEM;
+	}
+	memcpy(r->uri, uri, uri_len);
+	r->uri[uri_len] = '\0';
 
 	if (off + 7 >= len)
 		return -EAGAIN;
