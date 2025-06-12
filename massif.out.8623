@@ -1,0 +1,1042 @@
+desc: (none)
+cmd: nc -q 0 89.58.62.56 7777
+time_unit: i
+#-----------
+snapshot=0
+#-----------
+time=0
+mem_heap_B=0
+mem_heap_extra_B=0
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=1
+#-----------
+time=511195
+mem_heap_B=1024
+mem_heap_extra_B=8
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=2
+#-----------
+time=515532
+mem_heap_B=7142
+mem_heap_extra_B=98
+mem_stacks_B=0
+heap_tree=detailed
+n7: 7142 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 4096 0x49AD0BC: _IO_file_doallocate (filedoalloc.c:101)
+  n1: 4096 0x49BD105: _IO_doallocbuf (genops.c:373)
+   n1: 4096 0x49BD105: _IO_doallocbuf (genops.c:368)
+    n1: 4096 0x49BACCE: _IO_file_underflow@@GLIBC_2.2.5 (fileops.c:487)
+     n1: 4096 0x49AED51: getdelim (iogetdelim.c:77)
+      n1: 4096 0x4A6B9E5: nss_database_reload_1 (nss_database.c:283)
+       n1: 4096 0x4A6B9E5: nss_database_reload (nss_database.c:332)
+        n1: 4096 0x4A6B9E5: nss_database_check_reload_and_get (nss_database.c:457)
+         n1: 4096 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+          n1: 4096 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+           n1: 4096 0x4A7C639: getservbyname (getXXbyYY.c:140)
+            n1: 4096 0x400336E: UnknownInlinedFun (netcat.c:1888)
+             n0: 4096 0x400336E: main (netcat.c:877)
+ n1: 1086 0x4A6D071: __nss_module_allocate (nss_module.c:88)
+  n1: 1086 0x4A6B15E: nss_action_parse (nss_action_parse.c:57)
+   n1: 1086 0x4A6B15E: __nss_action_parse (nss_action_parse.c:169)
+    n1: 1086 0x4A6BAE2: process_line (nss_database.c:232)
+     n1: 1086 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+      n1: 1086 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+       n1: 1086 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+        n1: 1086 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+         n1: 1086 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+          n1: 1086 0x4A7C639: getservbyname (getXXbyYY.c:140)
+           n1: 1086 0x400336E: UnknownInlinedFun (netcat.c:1888)
+            n0: 1086 0x400336E: main (netcat.c:877)
+ n1: 1024 0x4A7C695: getservbyname (getXXbyYY.c:126)
+  n1: 1024 0x400336E: UnknownInlinedFun (netcat.c:1888)
+   n0: 1024 0x400336E: main (netcat.c:877)
+ n1: 472 0x49ADCC8: __fopen_internal (iofopen.c:65)
+  n1: 472 0x4A6B989: nss_database_reload (nss_database.c:306)
+   n1: 472 0x4A6B989: nss_database_check_reload_and_get (nss_database.c:457)
+    n1: 472 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+     n1: 472 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+      n1: 472 0x4A7C639: getservbyname (getXXbyYY.c:140)
+       n1: 472 0x400336E: UnknownInlinedFun (netcat.c:1888)
+        n0: 472 0x400336E: main (netcat.c:877)
+ n1: 216 0x4A6B7D2: global_state_allocate (nss_database.c:54)
+  n1: 216 0x4A3BEFC: __libc_allocate_once_slow (allocate_once.c:28)
+   n1: 216 0x4A6C046: allocate_once (allocate_once.h:90)
+    n1: 216 0x4A6C046: nss_database_state_get (nss_database.c:73)
+     n1: 216 0x4A6C046: __nss_database_get (nss_database.c:480)
+      n1: 216 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+       n1: 216 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+        n1: 216 0x4A7C639: getservbyname (getXXbyYY.c:140)
+         n1: 216 0x400336E: UnknownInlinedFun (netcat.c:1888)
+          n0: 216 0x400336E: main (netcat.c:877)
+ n1: 128 0x4A6AF50: __nss_action_allocate (nss_action.c:90)
+  n1: 128 0x4A6B4B5: __nss_action_parse (nss_action_parse.c:177)
+   n1: 128 0x4A6BAE2: process_line (nss_database.c:232)
+    n1: 128 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+     n1: 128 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+      n1: 128 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 128 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 128 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 128 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 128 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 128 0x400336E: main (netcat.c:877)
+ n1: 120 0x49AED25: getdelim (iogetdelim.c:65)
+  n1: 120 0x4A6B9E5: nss_database_reload_1 (nss_database.c:283)
+   n1: 120 0x4A6B9E5: nss_database_reload (nss_database.c:332)
+    n1: 120 0x4A6B9E5: nss_database_check_reload_and_get (nss_database.c:457)
+     n1: 120 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+      n1: 120 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+       n1: 120 0x4A7C639: getservbyname (getXXbyYY.c:140)
+        n1: 120 0x400336E: UnknownInlinedFun (netcat.c:1888)
+         n0: 120 0x400336E: main (netcat.c:877)
+#-----------
+snapshot=3
+#-----------
+time=518255
+mem_heap_B=7190
+mem_heap_extra_B=106
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=4
+#-----------
+time=521169
+mem_heap_B=9480
+mem_heap_extra_B=176
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=5
+#-----------
+time=526867
+mem_heap_B=9480
+mem_heap_extra_B=176
+mem_stacks_B=0
+heap_tree=detailed
+n7: 9480 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 4096 0x49AD0BC: _IO_file_doallocate (filedoalloc.c:101)
+  n1: 4096 0x49BD105: _IO_doallocbuf (genops.c:373)
+   n1: 4096 0x49BD105: _IO_doallocbuf (genops.c:368)
+    n1: 4096 0x49BACCE: _IO_file_underflow@@GLIBC_2.2.5 (fileops.c:487)
+     n1: 4096 0x49AED51: getdelim (iogetdelim.c:77)
+      n1: 4096 0x4A6B9E5: nss_database_reload_1 (nss_database.c:283)
+       n1: 4096 0x4A6B9E5: nss_database_reload (nss_database.c:332)
+        n1: 4096 0x4A6B9E5: nss_database_check_reload_and_get (nss_database.c:457)
+         n1: 4096 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+          n1: 4096 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+           n1: 4096 0x4A7C639: getservbyname (getXXbyYY.c:140)
+            n1: 4096 0x400336E: UnknownInlinedFun (netcat.c:1888)
+             n0: 4096 0x400336E: main (netcat.c:877)
+ n1: 3264 0x4A6D071: __nss_module_allocate (nss_module.c:88)
+  n1: 3264 0x4A6B15E: nss_action_parse (nss_action_parse.c:57)
+   n1: 3264 0x4A6B15E: __nss_action_parse (nss_action_parse.c:169)
+    n1: 3264 0x4A6BAE2: process_line (nss_database.c:232)
+     n1: 3264 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+      n1: 3264 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+       n1: 3264 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+        n1: 3264 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+         n1: 3264 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+          n1: 3264 0x4A7C639: getservbyname (getXXbyYY.c:140)
+           n1: 3264 0x400336E: UnknownInlinedFun (netcat.c:1888)
+            n0: 3264 0x400336E: main (netcat.c:877)
+ n1: 1024 0x4A7C695: getservbyname (getXXbyYY.c:126)
+  n1: 1024 0x400336E: UnknownInlinedFun (netcat.c:1888)
+   n0: 1024 0x400336E: main (netcat.c:877)
+ n1: 472 0x49ADCC8: __fopen_internal (iofopen.c:65)
+  n1: 472 0x4A6B989: nss_database_reload (nss_database.c:306)
+   n1: 472 0x4A6B989: nss_database_check_reload_and_get (nss_database.c:457)
+    n1: 472 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+     n1: 472 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+      n1: 472 0x4A7C639: getservbyname (getXXbyYY.c:140)
+       n1: 472 0x400336E: UnknownInlinedFun (netcat.c:1888)
+        n0: 472 0x400336E: main (netcat.c:877)
+ n1: 288 0x4A6AF50: __nss_action_allocate (nss_action.c:90)
+  n1: 288 0x4A6B4B5: __nss_action_parse (nss_action_parse.c:177)
+   n1: 288 0x4A6BAE2: process_line (nss_database.c:232)
+    n1: 288 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+     n1: 288 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+      n1: 288 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 288 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 288 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 288 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 288 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 288 0x400336E: main (netcat.c:877)
+ n1: 216 0x4A6B7D2: global_state_allocate (nss_database.c:54)
+  n1: 216 0x4A3BEFC: __libc_allocate_once_slow (allocate_once.c:28)
+   n1: 216 0x4A6C046: allocate_once (allocate_once.h:90)
+    n1: 216 0x4A6C046: nss_database_state_get (nss_database.c:73)
+     n1: 216 0x4A6C046: __nss_database_get (nss_database.c:480)
+      n1: 216 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+       n1: 216 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+        n1: 216 0x4A7C639: getservbyname (getXXbyYY.c:140)
+         n1: 216 0x400336E: UnknownInlinedFun (netcat.c:1888)
+          n0: 216 0x400336E: main (netcat.c:877)
+ n1: 120 0x49AED25: getdelim (iogetdelim.c:65)
+  n1: 120 0x4A6B9E5: nss_database_reload_1 (nss_database.c:283)
+   n1: 120 0x4A6B9E5: nss_database_reload (nss_database.c:332)
+    n1: 120 0x4A6B9E5: nss_database_check_reload_and_get (nss_database.c:457)
+     n1: 120 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+      n1: 120 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+       n1: 120 0x4A7C639: getservbyname (getXXbyYY.c:140)
+        n1: 120 0x400336E: UnknownInlinedFun (netcat.c:1888)
+         n0: 120 0x400336E: main (netcat.c:877)
+#-----------
+snapshot=6
+#-----------
+time=530778
+mem_heap_B=9948
+mem_heap_extra_B=180
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=7
+#-----------
+time=10353499
+mem_heap_B=5852
+mem_heap_extra_B=172
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=8
+#-----------
+time=10355844
+mem_heap_B=5449
+mem_heap_extra_B=183
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=9
+#-----------
+time=10358500
+mem_heap_B=5921
+mem_heap_extra_B=199
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=10
+#-----------
+time=10360991
+mem_heap_B=22371
+mem_heap_extra_B=253
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=11
+#-----------
+time=10367537
+mem_heap_B=22371
+mem_heap_extra_B=253
+mem_stacks_B=0
+heap_tree=detailed
+n8: 22371 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14400 0x48DD5EF: init (connlogger.c:225)
+  n1: 14400 0x48DE9C0: socket (connlogger.c:873)
+   n1: 14400 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 14400 0x40039EA: main (netcat.c:900)
+ n1: 3804 0x4A6D071: __nss_module_allocate (nss_module.c:88)
+  n1: 3804 0x4A6B15E: nss_action_parse (nss_action_parse.c:57)
+   n2: 3804 0x4A6B15E: __nss_action_parse (nss_action_parse.c:169)
+    n1: 3264 0x4A6BAE2: process_line (nss_database.c:232)
+     n1: 3264 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+      n1: 3264 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+       n1: 3264 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+        n1: 3264 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+         n1: 3264 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+          n1: 3264 0x4A7C639: getservbyname (getXXbyYY.c:140)
+           n1: 3264 0x400336E: UnknownInlinedFun (netcat.c:1888)
+            n0: 3264 0x400336E: main (netcat.c:877)
+    n1: 540 0x4A6BC5C: nss_database_select_default (nss_database.c:166)
+     n1: 540 0x4A6BC5C: nss_database_reload (nss_database.c:368)
+      n1: 540 0x4A6BC5C: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 540 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 540 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 540 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 540 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 540 0x400336E: main (netcat.c:877)
+ n1: 1025 0x48DD78E: push_sockfd (connlogger.c:275)
+  n1: 1025 0x48DE9CE: socket (connlogger.c:874)
+   n1: 1025 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 1025 0x40039EA: main (netcat.c:900)
+ n1: 1025 0x48DD7BE: push_sockfd (connlogger.c:276)
+  n1: 1025 0x48DE9CE: socket (connlogger.c:874)
+   n1: 1025 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 1025 0x40039EA: main (netcat.c:900)
+ n1: 1024 0x4A7C695: getservbyname (getXXbyYY.c:126)
+  n1: 1024 0x400336E: UnknownInlinedFun (netcat.c:1888)
+   n0: 1024 0x400336E: main (netcat.c:877)
+ n2: 472 0x49ADCC8: __fopen_internal (iofopen.c:65)
+  n1: 472 0x48DD5A8: init (connlogger.c:218)
+   n1: 472 0x48DE9C0: socket (connlogger.c:873)
+    n1: 472 0x4005C75: remote_connect (netcat.c:1200)
+     n0: 472 0x40039EA: main (netcat.c:900)
+  n0: 0 in 2 places, all below massif's threshold (1.00%)
+ n1: 336 0x4A6AF50: __nss_action_allocate (nss_action.c:90)
+  n2: 336 0x4A6B4B5: __nss_action_parse (nss_action_parse.c:177)
+   n1: 288 0x4A6BAE2: process_line (nss_database.c:232)
+    n1: 288 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+     n1: 288 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+      n1: 288 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 288 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 288 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 288 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 288 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 288 0x400336E: main (netcat.c:877)
+   n0: 48 in 1 place, below massif's threshold (1.00%)
+ n0: 285 in 5 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=12
+#-----------
+time=10369297
+mem_heap_B=22915
+mem_heap_extra_B=253
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=13
+#-----------
+time=10376999
+mem_heap_B=22920
+mem_heap_extra_B=272
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=14
+#-----------
+time=10399251
+mem_heap_B=22936
+mem_heap_extra_B=280
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=15
+#-----------
+time=10399348
+mem_heap_B=22952
+mem_heap_extra_B=312
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=16
+#-----------
+time=10507175
+mem_heap_B=22968
+mem_heap_extra_B=312
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=17
+#-----------
+time=10507266
+mem_heap_B=23050
+mem_heap_extra_B=342
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=18
+#-----------
+time=10593933
+mem_heap_B=23066
+mem_heap_extra_B=358
+mem_stacks_B=0
+heap_tree=detailed
+n9: 23066 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14400 0x48DD5EF: init (connlogger.c:225)
+  n1: 14400 0x48DE9C0: socket (connlogger.c:873)
+   n1: 14400 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 14400 0x40039EA: main (netcat.c:900)
+ n1: 3804 0x4A6D071: __nss_module_allocate (nss_module.c:88)
+  n1: 3804 0x4A6B15E: nss_action_parse (nss_action_parse.c:57)
+   n2: 3804 0x4A6B15E: __nss_action_parse (nss_action_parse.c:169)
+    n1: 3264 0x4A6BAE2: process_line (nss_database.c:232)
+     n1: 3264 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+      n1: 3264 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+       n1: 3264 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+        n1: 3264 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+         n1: 3264 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+          n1: 3264 0x4A7C639: getservbyname (getXXbyYY.c:140)
+           n1: 3264 0x400336E: UnknownInlinedFun (netcat.c:1888)
+            n0: 3264 0x400336E: main (netcat.c:877)
+    n1: 540 0x4A6BC5C: nss_database_select_default (nss_database.c:166)
+     n1: 540 0x4A6BC5C: nss_database_reload (nss_database.c:368)
+      n1: 540 0x4A6BC5C: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 540 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 540 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 540 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 540 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 540 0x400336E: main (netcat.c:877)
+ n1: 1025 0x48DD78E: push_sockfd (connlogger.c:275)
+  n1: 1025 0x48DE9CE: socket (connlogger.c:874)
+   n1: 1025 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 1025 0x40039EA: main (netcat.c:900)
+ n1: 1025 0x48DD7BE: push_sockfd (connlogger.c:276)
+  n1: 1025 0x48DE9CE: socket (connlogger.c:874)
+   n1: 1025 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 1025 0x40039EA: main (netcat.c:900)
+ n1: 1024 0x4A7C695: getservbyname (getXXbyYY.c:126)
+  n1: 1024 0x400336E: UnknownInlinedFun (netcat.c:1888)
+   n0: 1024 0x400336E: main (netcat.c:877)
+ n1: 608 0x48DD2BF: allocate_req (connlogger.c:126)
+  n1: 608 0x48DE767: handle_parse_localbuf (connlogger.c:774)
+   n1: 608 0x48DECCE: write (connlogger.c:1040)
+    n1: 608 0x4005FB6: drainbuf (netcat.c:1704)
+     n1: 608 0x40062FE: readwrite (netcat.c:1581)
+      n0: 608 0x4003B95: main (netcat.c:937)
+ n2: 472 0x49ADCC8: __fopen_internal (iofopen.c:65)
+  n1: 472 0x48DD5A8: init (connlogger.c:218)
+   n1: 472 0x48DE9C0: socket (connlogger.c:873)
+    n1: 472 0x4005C75: remote_connect (netcat.c:1200)
+     n0: 472 0x40039EA: main (netcat.c:900)
+  n0: 0 in 2 places, all below massif's threshold (1.00%)
+ n0: 372 in 10 places, all below massif's threshold (1.00%)
+ n1: 336 0x4A6AF50: __nss_action_allocate (nss_action.c:90)
+  n2: 336 0x4A6B4B5: __nss_action_parse (nss_action_parse.c:177)
+   n1: 288 0x4A6BAE2: process_line (nss_database.c:232)
+    n1: 288 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+     n1: 288 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+      n1: 288 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 288 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 288 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 288 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 288 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 288 0x400336E: main (netcat.c:877)
+   n0: 48 in 1 place, below massif's threshold (1.00%)
+#-----------
+snapshot=19
+#-----------
+time=10594024
+mem_heap_B=23137
+mem_heap_extra_B=399
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=20
+#-----------
+time=10630477
+mem_heap_B=23153
+mem_heap_extra_B=383
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=21
+#-----------
+time=10630568
+mem_heap_B=23193
+mem_heap_extra_B=407
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=22
+#-----------
+time=10666610
+mem_heap_B=23209
+mem_heap_extra_B=407
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=23
+#-----------
+time=10666701
+mem_heap_B=23249
+mem_heap_extra_B=431
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=24
+#-----------
+time=10787636
+mem_heap_B=23265
+mem_heap_extra_B=431
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=25
+#-----------
+time=10787727
+mem_heap_B=23354
+mem_heap_extra_B=470
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=26
+#-----------
+time=10804394
+mem_heap_B=23370
+mem_heap_extra_B=470
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=27
+#-----------
+time=10804485
+mem_heap_B=23392
+mem_heap_extra_B=512
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=28
+#-----------
+time=10825563
+mem_heap_B=23408
+mem_heap_extra_B=512
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=29
+#-----------
+time=10825654
+mem_heap_B=23436
+mem_heap_extra_B=564
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=30
+#-----------
+time=10843708
+mem_heap_B=23452
+mem_heap_extra_B=564
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=31
+#-----------
+time=10843799
+mem_heap_B=23476
+mem_heap_extra_B=588
+mem_stacks_B=0
+heap_tree=detailed
+n10: 23476 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14400 0x48DD5EF: init (connlogger.c:225)
+  n1: 14400 0x48DE9C0: socket (connlogger.c:873)
+   n1: 14400 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 14400 0x40039EA: main (netcat.c:900)
+ n1: 3804 0x4A6D071: __nss_module_allocate (nss_module.c:88)
+  n1: 3804 0x4A6B15E: nss_action_parse (nss_action_parse.c:57)
+   n2: 3804 0x4A6B15E: __nss_action_parse (nss_action_parse.c:169)
+    n1: 3264 0x4A6BAE2: process_line (nss_database.c:232)
+     n1: 3264 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+      n1: 3264 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+       n1: 3264 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+        n1: 3264 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+         n1: 3264 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+          n1: 3264 0x4A7C639: getservbyname (getXXbyYY.c:140)
+           n1: 3264 0x400336E: UnknownInlinedFun (netcat.c:1888)
+            n0: 3264 0x400336E: main (netcat.c:877)
+    n1: 540 0x4A6BC5C: nss_database_select_default (nss_database.c:166)
+     n1: 540 0x4A6BC5C: nss_database_reload (nss_database.c:368)
+      n1: 540 0x4A6BC5C: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 540 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 540 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 540 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 540 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 540 0x400336E: main (netcat.c:877)
+ n1: 1025 0x48DD78E: push_sockfd (connlogger.c:275)
+  n1: 1025 0x48DE9CE: socket (connlogger.c:874)
+   n1: 1025 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 1025 0x40039EA: main (netcat.c:900)
+ n1: 1025 0x48DD7BE: push_sockfd (connlogger.c:276)
+  n1: 1025 0x48DE9CE: socket (connlogger.c:874)
+   n1: 1025 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 1025 0x40039EA: main (netcat.c:900)
+ n1: 1024 0x4A7C695: getservbyname (getXXbyYY.c:126)
+  n1: 1024 0x400336E: UnknownInlinedFun (netcat.c:1888)
+   n0: 1024 0x400336E: main (netcat.c:877)
+ n1: 608 0x48DD2BF: allocate_req (connlogger.c:126)
+  n1: 608 0x48DE767: handle_parse_localbuf (connlogger.c:774)
+   n1: 608 0x48DECCE: write (connlogger.c:1040)
+    n1: 608 0x4005FB6: drainbuf (netcat.c:1704)
+     n1: 608 0x40062FE: readwrite (netcat.c:1581)
+      n0: 608 0x4003B95: main (netcat.c:937)
+ n0: 485 in 9 places, all below massif's threshold (1.00%)
+ n2: 472 0x49ADCC8: __fopen_internal (iofopen.c:65)
+  n1: 472 0x48DD5A8: init (connlogger.c:218)
+   n1: 472 0x48DE9C0: socket (connlogger.c:873)
+    n1: 472 0x4005C75: remote_connect (netcat.c:1200)
+     n0: 472 0x40039EA: main (netcat.c:900)
+  n0: 0 in 2 places, all below massif's threshold (1.00%)
+ n1: 336 0x4A6AF50: __nss_action_allocate (nss_action.c:90)
+  n2: 336 0x4A6B4B5: __nss_action_parse (nss_action_parse.c:177)
+   n1: 288 0x4A6BAE2: process_line (nss_database.c:232)
+    n1: 288 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+     n1: 288 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+      n1: 288 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 288 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 288 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 288 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 288 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 288 0x400336E: main (netcat.c:877)
+   n0: 48 in 1 place, below massif's threshold (1.00%)
+ n1: 297 0x48DE23C: add_hdr (connlogger.c:618)
+  n1: 297 0x48DE564: parse_hdr (connlogger.c:723)
+   n1: 297 0x48DE80F: handle_parse_localbuf (connlogger.c:795)
+    n1: 297 0x48DECCE: write (connlogger.c:1040)
+     n1: 297 0x4005FB6: drainbuf (netcat.c:1704)
+      n1: 297 0x40062FE: readwrite (netcat.c:1581)
+       n0: 297 0x4003B95: main (netcat.c:937)
+#-----------
+snapshot=32
+#-----------
+time=10861852
+mem_heap_B=23492
+mem_heap_extra_B=588
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=33
+#-----------
+time=10861943
+mem_heap_B=23516
+mem_heap_extra_B=612
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=34
+#-----------
+time=10882742
+mem_heap_B=23532
+mem_heap_extra_B=612
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=35
+#-----------
+time=10882833
+mem_heap_B=23559
+mem_heap_extra_B=633
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=36
+#-----------
+time=10895656
+mem_heap_B=23575
+mem_heap_extra_B=633
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=37
+#-----------
+time=10900555
+mem_heap_B=23615
+mem_heap_extra_B=721
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=38
+#-----------
+time=10907775
+mem_heap_B=23631
+mem_heap_extra_B=705
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=39
+#-----------
+time=10907866
+mem_heap_B=23641
+mem_heap_extra_B=743
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=40
+#-----------
+time=10919428
+mem_heap_B=23657
+mem_heap_extra_B=743
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=41
+#-----------
+time=10919519
+mem_heap_B=23673
+mem_heap_extra_B=775
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=42
+#-----------
+time=10931054
+mem_heap_B=23689
+mem_heap_extra_B=775
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=43
+#-----------
+time=10931145
+mem_heap_B=23705
+mem_heap_extra_B=807
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=44
+#-----------
+time=10947923
+mem_heap_B=23721
+mem_heap_extra_B=807
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=45
+#-----------
+time=10948014
+mem_heap_B=23744
+mem_heap_extra_B=848
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=46
+#-----------
+time=10961437
+mem_heap_B=23760
+mem_heap_extra_B=848
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=47
+#-----------
+time=10961528
+mem_heap_B=23779
+mem_heap_extra_B=877
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=48
+#-----------
+time=10972017
+mem_heap_B=23779
+mem_heap_extra_B=877
+mem_stacks_B=0
+heap_tree=peak
+n11: 23779 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14400 0x48DD5EF: init (connlogger.c:225)
+  n1: 14400 0x48DE9C0: socket (connlogger.c:873)
+   n1: 14400 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 14400 0x40039EA: main (netcat.c:900)
+ n1: 3804 0x4A6D071: __nss_module_allocate (nss_module.c:88)
+  n1: 3804 0x4A6B15E: nss_action_parse (nss_action_parse.c:57)
+   n2: 3804 0x4A6B15E: __nss_action_parse (nss_action_parse.c:169)
+    n1: 3264 0x4A6BAE2: process_line (nss_database.c:232)
+     n1: 3264 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+      n1: 3264 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+       n1: 3264 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+        n1: 3264 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+         n1: 3264 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+          n1: 3264 0x4A7C639: getservbyname (getXXbyYY.c:140)
+           n1: 3264 0x400336E: UnknownInlinedFun (netcat.c:1888)
+            n0: 3264 0x400336E: main (netcat.c:877)
+    n1: 540 0x4A6BC5C: nss_database_select_default (nss_database.c:166)
+     n1: 540 0x4A6BC5C: nss_database_reload (nss_database.c:368)
+      n1: 540 0x4A6BC5C: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 540 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 540 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 540 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 540 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 540 0x400336E: main (netcat.c:877)
+ n1: 1025 0x48DD78E: push_sockfd (connlogger.c:275)
+  n1: 1025 0x48DE9CE: socket (connlogger.c:874)
+   n1: 1025 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 1025 0x40039EA: main (netcat.c:900)
+ n1: 1025 0x48DD7BE: push_sockfd (connlogger.c:276)
+  n1: 1025 0x48DE9CE: socket (connlogger.c:874)
+   n1: 1025 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 1025 0x40039EA: main (netcat.c:900)
+ n1: 1024 0x4A7C695: getservbyname (getXXbyYY.c:126)
+  n1: 1024 0x400336E: UnknownInlinedFun (netcat.c:1888)
+   n0: 1024 0x400336E: main (netcat.c:877)
+ n1: 608 0x48DD2BF: allocate_req (connlogger.c:126)
+  n1: 608 0x48DE767: handle_parse_localbuf (connlogger.c:774)
+   n1: 608 0x48DECCE: write (connlogger.c:1040)
+    n1: 608 0x4005FB6: drainbuf (netcat.c:1704)
+     n1: 608 0x40062FE: readwrite (netcat.c:1581)
+      n0: 608 0x4003B95: main (netcat.c:937)
+ n2: 472 0x49ADCC8: __fopen_internal (iofopen.c:65)
+  n1: 472 0x48DD5A8: init (connlogger.c:218)
+   n1: 472 0x48DE9C0: socket (connlogger.c:873)
+    n1: 472 0x4005C75: remote_connect (netcat.c:1200)
+     n0: 472 0x40039EA: main (netcat.c:900)
+  n0: 0 in 2 places, all below massif's threshold (1.00%)
+ n0: 443 in 8 places, all below massif's threshold (1.00%)
+ n1: 354 0x48DE23C: add_hdr (connlogger.c:618)
+  n1: 354 0x48DE564: parse_hdr (connlogger.c:723)
+   n1: 354 0x48DE80F: handle_parse_localbuf (connlogger.c:795)
+    n1: 354 0x48DECCE: write (connlogger.c:1040)
+     n1: 354 0x4005FB6: drainbuf (netcat.c:1704)
+      n1: 354 0x40062FE: readwrite (netcat.c:1581)
+       n0: 354 0x4003B95: main (netcat.c:937)
+ n1: 336 0x4A6AF50: __nss_action_allocate (nss_action.c:90)
+  n2: 336 0x4A6B4B5: __nss_action_parse (nss_action_parse.c:177)
+   n1: 288 0x4A6BAE2: process_line (nss_database.c:232)
+    n1: 288 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+     n1: 288 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+      n1: 288 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 288 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 288 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 288 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 288 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 288 0x400336E: main (netcat.c:877)
+   n0: 48 in 1 place, below massif's threshold (1.00%)
+ n1: 288 0x48DE1BE: add_hdr (connlogger.c:604)
+  n1: 288 0x48DE564: parse_hdr (connlogger.c:723)
+   n1: 288 0x48DE80F: handle_parse_localbuf (connlogger.c:795)
+    n1: 288 0x48DECCE: write (connlogger.c:1040)
+     n1: 288 0x4005FB6: drainbuf (netcat.c:1704)
+      n1: 288 0x40062FE: readwrite (netcat.c:1581)
+       n0: 288 0x4003B95: main (netcat.c:937)
+#-----------
+snapshot=49
+#-----------
+time=10972301
+mem_heap_B=21619
+mem_heap_extra_B=717
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=50
+#-----------
+time=10972405
+mem_heap_B=21515
+mem_heap_extra_B=685
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=51
+#-----------
+time=10972520
+mem_heap_B=21467
+mem_heap_extra_B=645
+mem_stacks_B=0
+heap_tree=detailed
+n8: 21467 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14400 0x48DD5EF: init (connlogger.c:225)
+  n1: 14400 0x48DE9C0: socket (connlogger.c:873)
+   n1: 14400 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 14400 0x40039EA: main (netcat.c:900)
+ n1: 3804 0x4A6D071: __nss_module_allocate (nss_module.c:88)
+  n1: 3804 0x4A6B15E: nss_action_parse (nss_action_parse.c:57)
+   n2: 3804 0x4A6B15E: __nss_action_parse (nss_action_parse.c:169)
+    n1: 3264 0x4A6BAE2: process_line (nss_database.c:232)
+     n1: 3264 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+      n1: 3264 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+       n1: 3264 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+        n1: 3264 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+         n1: 3264 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+          n1: 3264 0x4A7C639: getservbyname (getXXbyYY.c:140)
+           n1: 3264 0x400336E: UnknownInlinedFun (netcat.c:1888)
+            n0: 3264 0x400336E: main (netcat.c:877)
+    n1: 540 0x4A6BC5C: nss_database_select_default (nss_database.c:166)
+     n1: 540 0x4A6BC5C: nss_database_reload (nss_database.c:368)
+      n1: 540 0x4A6BC5C: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 540 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 540 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 540 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 540 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 540 0x400336E: main (netcat.c:877)
+ n1: 1024 0x4A7C695: getservbyname (getXXbyYY.c:126)
+  n1: 1024 0x400336E: UnknownInlinedFun (netcat.c:1888)
+   n0: 1024 0x400336E: main (netcat.c:877)
+ n1: 608 0x48DD2BF: allocate_req (connlogger.c:126)
+  n1: 608 0x48DE767: handle_parse_localbuf (connlogger.c:774)
+   n1: 608 0x48DECCE: write (connlogger.c:1040)
+    n1: 608 0x4005FB6: drainbuf (netcat.c:1704)
+     n1: 608 0x40062FE: readwrite (netcat.c:1581)
+      n0: 608 0x4003B95: main (netcat.c:937)
+ n0: 535 in 11 places, all below massif's threshold (1.00%)
+ n2: 472 0x49ADCC8: __fopen_internal (iofopen.c:65)
+  n1: 472 0x48DD5A8: init (connlogger.c:218)
+   n1: 472 0x48DE9C0: socket (connlogger.c:873)
+    n1: 472 0x4005C75: remote_connect (netcat.c:1200)
+     n0: 472 0x40039EA: main (netcat.c:900)
+  n0: 0 in 2 places, all below massif's threshold (1.00%)
+ n1: 336 0x4A6AF50: __nss_action_allocate (nss_action.c:90)
+  n2: 336 0x4A6B4B5: __nss_action_parse (nss_action_parse.c:177)
+   n1: 288 0x4A6BAE2: process_line (nss_database.c:232)
+    n1: 288 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+     n1: 288 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+      n1: 288 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 288 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 288 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 288 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 288 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 288 0x400336E: main (netcat.c:877)
+   n0: 48 in 1 place, below massif's threshold (1.00%)
+ n1: 288 0x48DE1BE: add_hdr (connlogger.c:604)
+  n1: 288 0x48DE564: parse_hdr (connlogger.c:723)
+   n1: 288 0x48DE80F: handle_parse_localbuf (connlogger.c:795)
+    n1: 288 0x48DECCE: write (connlogger.c:1040)
+     n1: 288 0x4005FB6: drainbuf (netcat.c:1704)
+      n1: 288 0x40062FE: readwrite (netcat.c:1581)
+       n0: 288 0x4003B95: main (netcat.c:937)
+#-----------
+snapshot=52
+#-----------
+time=10972624
+mem_heap_B=21364
+mem_heap_extra_B=580
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=53
+#-----------
+time=10972739
+mem_heap_B=21321
+mem_heap_extra_B=519
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=54
+#-----------
+time=10972843
+mem_heap_B=21288
+mem_heap_extra_B=480
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=55
+#-----------
+time=10972958
+mem_heap_B=21246
+mem_heap_extra_B=450
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=56
+#-----------
+time=10973062
+mem_heap_B=21237
+mem_heap_extra_B=387
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=57
+#-----------
+time=10973177
+mem_heap_B=21218
+mem_heap_extra_B=334
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=58
+#-----------
+time=10973281
+mem_heap_B=21195
+mem_heap_extra_B=285
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=59
+#-----------
+time=10973396
+mem_heap_B=21157
+mem_heap_extra_B=235
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=60
+#-----------
+time=10973493
+mem_heap_B=20257
+mem_heap_extra_B=199
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=61
+#-----------
+time=10976293
+mem_heap_B=19717
+mem_heap_extra_B=187
+mem_stacks_B=0
+heap_tree=detailed
+n7: 19717 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 14400 0x48DD5EF: init (connlogger.c:225)
+  n1: 14400 0x48DE9C0: socket (connlogger.c:873)
+   n1: 14400 0x4005C75: remote_connect (netcat.c:1200)
+    n0: 14400 0x40039EA: main (netcat.c:900)
+ n1: 3264 0x4A6D071: __nss_module_allocate (nss_module.c:88)
+  n1: 3264 0x4A6B15E: nss_action_parse (nss_action_parse.c:57)
+   n2: 3264 0x4A6B15E: __nss_action_parse (nss_action_parse.c:169)
+    n1: 3264 0x4A6BAE2: process_line (nss_database.c:232)
+     n1: 3264 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+      n1: 3264 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+       n1: 3264 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+        n1: 3264 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+         n1: 3264 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+          n1: 3264 0x4A7C639: getservbyname (getXXbyYY.c:140)
+           n1: 3264 0x400336E: UnknownInlinedFun (netcat.c:1888)
+            n0: 3264 0x400336E: main (netcat.c:877)
+    n0: 0 in 1 place, below massif's threshold (1.00%)
+ n1: 1024 0x4A7C695: getservbyname (getXXbyYY.c:126)
+  n1: 1024 0x400336E: UnknownInlinedFun (netcat.c:1888)
+   n0: 1024 0x400336E: main (netcat.c:877)
+ n2: 472 0x49ADCC8: __fopen_internal (iofopen.c:65)
+  n1: 472 0x48DD5A8: init (connlogger.c:218)
+   n1: 472 0x48DE9C0: socket (connlogger.c:873)
+    n1: 472 0x4005C75: remote_connect (netcat.c:1200)
+     n0: 472 0x40039EA: main (netcat.c:900)
+  n0: 0 in 2 places, all below massif's threshold (1.00%)
+ n1: 336 0x4A6AF50: __nss_action_allocate (nss_action.c:90)
+  n2: 336 0x4A6B4B5: __nss_action_parse (nss_action_parse.c:177)
+   n1: 288 0x4A6BAE2: process_line (nss_database.c:232)
+    n1: 288 0x4A6BAE2: nss_database_reload_1 (nss_database.c:294)
+     n1: 288 0x4A6BAE2: nss_database_reload (nss_database.c:332)
+      n1: 288 0x4A6BAE2: nss_database_check_reload_and_get (nss_database.c:457)
+       n1: 288 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+        n1: 288 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+         n1: 288 0x4A7C639: getservbyname (getXXbyYY.c:140)
+          n1: 288 0x400336E: UnknownInlinedFun (netcat.c:1888)
+           n0: 288 0x400336E: main (netcat.c:877)
+   n0: 48 in 1 place, below massif's threshold (1.00%)
+ n1: 216 0x4A6B7D2: global_state_allocate (nss_database.c:54)
+  n1: 216 0x4A3BEFC: __libc_allocate_once_slow (allocate_once.c:28)
+   n1: 216 0x4A6C046: allocate_once (allocate_once.h:90)
+    n1: 216 0x4A6C046: nss_database_state_get (nss_database.c:73)
+     n1: 216 0x4A6C046: __nss_database_get (nss_database.c:480)
+      n1: 216 0x4A69F6D: __nss_services_lookup2 (XXX-lookup.c:53)
+       n1: 216 0x4A7C762: getservbyname_r@@GLIBC_2.2.5 (getXXbyYY_r.c:264)
+        n1: 216 0x4A7C639: getservbyname (getXXbyYY.c:140)
+         n1: 216 0x400336E: UnknownInlinedFun (netcat.c:1888)
+          n0: 216 0x400336E: main (netcat.c:877)
+ n0: 5 in 12 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=62
+#-----------
+time=10976395
+mem_heap_B=18086
+mem_heap_extra_B=146
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=63
+#-----------
+time=10976500
+mem_heap_B=16453
+mem_heap_extra_B=107
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=64
+#-----------
+time=10976608
+mem_heap_B=16245
+mem_heap_extra_B=83
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=65
+#-----------
+time=10976708
+mem_heap_B=15901
+mem_heap_extra_B=51
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=66
+#-----------
+time=10979512
+mem_heap_B=14877
+mem_heap_extra_B=43
+mem_stacks_B=0
+heap_tree=empty

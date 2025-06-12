@@ -1,3 +1,11 @@
 build: make
 basic usage: LD_PRELOAD=/path/to/gwconnlogger.so GWLOG_PATH=/tmp/log.txt curl http://google.com
 debugging: strace -e trace=connect /usr/bin/env LD_PRELOAD=/home/reyuki/software/my-code/gnuweeb/gweeb_connlogger/build/gwconnlogger.so curl -s http://google.com/ >/dev/null
+
+analysis the heap usage and check for any memory leak or memory error with valgrind:
+valgrind --leak-check=full --show-leak-kinds=all --leak-resolution=high --log-file=leaks.log nc -q 0 89.58.62.56 7777 < <(printf "GET /aaa HTTP/1.1\r\nHost: google.com\r\nUser-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.7,id;q=0.3\r\nAccept-Encoding: gzip, deflate, br, zstd\r\nReferer: https://stackoverflow.com/questions/3047530/flexible-array-member-in-c-structure\r\nConnection: keep-alive\r\nUpgrade-Insecure-Requests: 1\r\nSec-Fetch-Dest: document\r\nSec-Fetch-Mode: navigate\r\nSec-Fetch-Site: same-origin\r\nSec-Fetch-User: ?1\r\nDNT: 1\r\nSec-GPC: 1\r\nPriority: u=0, i\r\nPragma: no-cache\r\nCache-Control: no-cache\r\nContent-Length: 100\r\n\r\n")
+
+or with massif tool instead of memory check (which is the default):
+valgrind --tool=massif  ...
+
+it will show record of snapshot, heap usage summary, and other useful information
