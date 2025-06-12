@@ -40,11 +40,15 @@ typedef enum {
 	HTTP_REQ_INIT = 0,
 	HTTP_REQ_LINE,
 	HTTP_REQ_HDR,
+	HTTP_REQ_HDR_DONE,
 	HTTP_REQ_BODY,
+	HTTP_REQ_BODY_DONE,
 	HTTP_RES_INIT = 0,
 	HTTP_RES_LINE,
 	HTTP_RES_HDR,
-	HTTP_RES_BODY
+	HTTP_RES_HDR_DONE,
+	HTTP_RES_BODY,
+	HTTP_RES_BODY_DONE
 } parser_state;
 
 struct http_hdr {
@@ -723,6 +727,14 @@ static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
 	return 0;
 }
 
+static int check_req_hdr(struct http_req *q, struct concated_buf *raw_buf)
+{
+	int ret;
+	/* TODO */
+
+	return 0;
+}
+
 static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 {
 	struct http_req *r;
@@ -767,7 +779,10 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			goto drop_sockfd;
 		
 		h->req_state = HTTP_REQ_HDR_DONE;
-		parse_hdr(r, raw);
+	}
+
+	if (h->req_state == HTTP_REQ_HDR_DONE) {
+		check_req_hdr(r, raw);
 	}
 
 	return;
