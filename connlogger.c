@@ -643,7 +643,7 @@ static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
 		key = &buf[off];
 		key_len = 0;
 
-		if (off + 2 >= len)
+		if (off + 1 >= len)
 			return -EAGAIN;
 
 		/* looking for end of header signal */
