@@ -309,8 +309,6 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 	);
 	h->sockfd = 0;
 
-	h->raw_req.cap = 0;
-	h->raw_req.len = 0;
 	pr_debug(
 		VERBOSE,
 		"raw_req.raw_bytes will be freed: %p\n",
@@ -318,8 +316,6 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 	);
 	free(h->raw_req.raw_bytes);
 
-	h->raw_res.cap = 0;
-	h->raw_res.len = 0;
 	pr_debug(
 		VERBOSE,
 		"raw_res.raw_bytes will be freed: %p\n",
