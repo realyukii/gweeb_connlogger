@@ -152,7 +152,16 @@ static void dequeue(struct http_req_queue *q)
 	if (!q->head)
 		q->tail = NULL;
 
-	/* TODO: clean-up other stuff if any */
+	if (r->uri)
+		free(r->uri);
+
+	for (size_t i = 0; i < r->hdr_list.nr_hdr; i++) {
+		struct http_hdr *h = &r->hdr_list.hdr[i];
+		free(h->key);
+		free(h->value);
+	}
+	free(r->hdr_list.hdr);
+
 	free(r);
 }
 
@@ -184,7 +193,6 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 		req->host, req->method, req->uri, req->res.status_code
 	);
 	pr_debug(VERBOSE, "URI will be freed: %p\n", req->uri);
-	free(req->uri);
 
 	if (ret < 0) {
 		pr_debug(DEBUG, "failed to write parsed data to the file\n");
@@ -322,15 +330,8 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 		h->raw_res.raw_bytes
 	);
 	free(h->raw_res.raw_bytes);
-	// TODO: clean up the queue
-	// while (h->req_queue.occupied > 0) {
-	// 	struct http_req *req = front(&h->req_queue);
-	// 	if (req->uri)
-	// 		free(req->uri);
-	// 	dequeue(&h->req_queue);
-	// }
-	// free(h->req_queue.req);
-	// memset(&h->req_queue, 0, sizeof(struct http_req_queue));
+	while (h->req_queue.head)
+		dequeue(&h->req_queue);
 
 	occupied_pool--;
 }
@@ -548,7 +549,8 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 		uri_len++;
 	}
 
-	r->uri = malloc(uri_len + 1);
+	if (!r->uri)
+		r->uri = malloc(uri_len + 1);
 	if (!r->uri) {
 		pr_debug(FOCUS, "not enough memory\n");
 		return -ENOMEM;
@@ -795,7 +797,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			return;
 		if (ret < 0)
 			goto drop_sockfd;
-		
+
 		h->req_state = HTTP_REQ_HDR_DONE;
 	}
 
