@@ -597,7 +597,7 @@ static int add_hdr(struct http_hdrs *h, char *k, char *v, size_t kl, size_t vl)
 	struct http_hdr *hdr, *tmp_hdr;
 
 	if (!h->hdr) {
-		h->hdr = malloc(sizeof(h->hdr) * 1);
+		h->hdr = malloc(sizeof(*h->hdr) * 1);
 		if (!h->hdr)
 			return -ENOMEM;
 	}
