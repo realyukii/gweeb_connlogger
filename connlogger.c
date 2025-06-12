@@ -51,6 +51,13 @@ typedef enum {
 	HTTP_RES_BODY_DONE
 } parser_state;
 
+struct http_body {
+	/* indicate the trafer-encoding is chunked */
+	bool is_chunked;
+	/* a body's content length */
+	size_t content_length;
+};
+
 struct http_hdr {
 	char *key;
 	char *value;
@@ -66,10 +73,7 @@ struct http_res {
 	char status_code[4];
 	/* parsing context of response header */
 	struct http_hdrs hdr_list;
-	/* indicate the trafer-encoding is chunked */
-	bool is_chunked;
-	/* a body's content length */
-	size_t content_length;
+	struct http_body body;
 };
 
 struct http_req {
@@ -81,10 +85,7 @@ struct http_req {
 	char *uri;
 	/* parsing context of request header */
 	struct http_hdrs hdr_list;
-	/* indicate the trafer-encoding is chunked */
-	bool is_chunked;
-	/* a body's content length */
-	size_t content_length;
+	struct http_body body;
 	/* corresponding response  */
 	struct http_res res;
 	/* a pointer to next http_req on the list */
@@ -738,17 +739,17 @@ static int check_req_hdr(struct http_req *q, struct concated_buf *raw_buf)
 		if (strcasecmp(h->key, "host") == 0) {
 			strcpy(q->host, h->value);
 		} else if (strcasecmp(h->key, "content-length") == 0) {
-			if (q->is_chunked)
+			if (q->body.is_chunked)
 				return -EINVAL;
 
-			q->content_length = atol(h->value);
+			q->body.content_length = atol(h->value);
 		} else if (strcasecmp(h->key, "transfer-encoding") == 0) {
-			if (q->content_length > 0)
+			if (q->body.content_length > 0)
 				return -EINVAL;
 
 			char *p = strstr(h->value, "chunked");
 			if (p)
-				q->is_chunked = true;
+				q->body.is_chunked = true;
 		}
 	}
 
