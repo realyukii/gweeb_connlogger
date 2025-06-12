@@ -70,8 +70,6 @@ struct http_res {
 	bool is_chunked;
 	/* a body's content length */
 	size_t content_length;
-	/* a pointer to the concated buffer */
-	char *end_of_hdr;
 };
 
 struct http_req {
@@ -79,8 +77,6 @@ struct http_req {
 	char method[MAX_HTTP_METHOD_LEN];
 	/* host name */
 	char host[MAX_HOST_LEN];
-	/* a pointer to the concated buffer */
-	char *end_of_hdr;
 	/* a pointer to the malloc'ed buffer */
 	char *uri;
 	/* parsing context of request header */
