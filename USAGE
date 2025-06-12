@@ -9,3 +9,5 @@ or with massif tool instead of memory check (which is the default):
 valgrind --tool=massif  ...
 
 it will show record of snapshot, heap usage summary, and other useful information
+
+for massif, read more on: https://valgrind.org/docs/manual/ms-manual.html
