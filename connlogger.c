@@ -735,7 +735,24 @@ static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
 static int check_req_hdr(struct http_req *q, struct concated_buf *raw_buf)
 {
 	int ret;
-	/* TODO */
+	for (size_t i = 0; i < q->hdr_list.nr_hdr; i++) {
+		struct http_hdr *h = &q->hdr_list.hdr[i];
+		if (strcasecmp(h->key, "host") == 0) {
+			strcpy(q->host, h->value);
+		} else if (strcasecmp(h->key, "content-length") == 0) {
+			if (q->is_chunked)
+				return -EINVAL;
+
+			q->content_length = atol(h->value);
+		} else if (strcasecmp(h->key, "transfer-encoding") == 0) {
+			if (q->content_length > 0)
+				return -EINVAL;
+
+			char *p = strstr(h->value, "chunked");
+			if (p)
+				q->is_chunked = true;
+		}
+	}
 
 	return 0;
 }
