@@ -642,6 +642,14 @@ static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
 
 		key = &buf[off];
 		key_len = 0;
+
+		if (off + 2 >= len)
+			return -EAGAIN;
+
+		/* looking for end of header signal */
+		if (memcmp(&buf[off], "\r\n", 2) == 0)
+			break;
+
 		/* parsing key of http header */
 		while (true) {
 			if (off >= len)
@@ -710,7 +718,6 @@ static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
 			pr_debug(FOCUS, "not enough memory\n");
 		if (ret < 0)
 			return -EINVAL;
-		break;
 	}
 
 	return 0;
@@ -753,6 +760,13 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->req_state == HTTP_REQ_HDR) {
+		ret = parse_hdr(r, raw);
+		if (ret == -EAGAIN)
+			return;
+		if (ret < 0)
+			goto drop_sockfd;
+		
+		h->req_state = HTTP_REQ_HDR_DONE;
 		parse_hdr(r, raw);
 	}
 
