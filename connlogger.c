@@ -762,7 +762,8 @@ static int parse_hdr(struct http_hdrs *h, struct concated_buf *raw_buf)
 
 		/* looking for end of header signal */
 		if (memcmp(&buf[off], "\r\n", 2) == 0) {
-			raw_buf->off += 2;
+			off += 2;
+			raw_buf->off += off;
 			break;
 		}
 
@@ -826,7 +827,6 @@ static int parse_hdr(struct http_hdrs *h, struct concated_buf *raw_buf)
 			val_len--;
 			tmp--;
 		}
-		raw_buf->off += off;
 
 		/* add the parsed key-value pair to the list */
 		ret = add_hdr(h, key, value, key_len, val_len);
