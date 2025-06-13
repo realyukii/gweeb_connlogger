@@ -914,10 +914,12 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 		}
 
 		enqueue(&h->req_queue, r);
+		pr_debug(VERBOSE, "queue a new request\n");
 		h->req_state = HTTP_REQ_LINE;
 	}
 
 	if (h->req_state == HTTP_REQ_LINE) {
+		pr_debug(VERBOSE, "parsing request line\n");
 		ret = parse_req_line(r, raw);
 		if (ret == -EINVAL)
 			goto drop_sockfd;
@@ -927,6 +929,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->req_state == HTTP_REQ_HDR) {
+		pr_debug(VERBOSE, "parsing request header\n");
 		ret = parse_hdr(&r->hdr_list, raw);
 		if (ret == -EAGAIN)
 			return;
@@ -937,6 +940,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->req_state == HTTP_REQ_HDR_DONE) {
+		pr_debug(VERBOSE, "checking request header\n");
 		ret = check_req_hdr(r, raw);
 		if (ret < 0)
 			goto drop_sockfd;
@@ -959,6 +963,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->req_state == HTTP_REQ_BODY) {
+		pr_debug(VERBOSE, "parsing request body\n");
 		ret = parse_bdy(&r->body, raw);
 		if (ret == -EAGAIN)
 			return;
@@ -1071,6 +1076,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	concat_buf(buf, raw, buf_len);
 
 	if (h->res_state == HTTP_RES_LINE) {
+		pr_debug(VERBOSE, "parsing response line\n");
 		ret = parse_res_line(r, raw);
 		if (ret == -EAGAIN)
 			return;
@@ -1081,6 +1087,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->res_state == HTTP_RES_HDR) {
+		pr_debug(VERBOSE, "parsing response header\n");
 		ret = parse_hdr(&r->res.hdr_list, raw);
 		if (ret == -EAGAIN)
 			return;
@@ -1091,6 +1098,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->res_state == HTTP_RES_HDR_DONE) {
+		pr_debug(VERBOSE, "checking response header\n");
 		ret = check_res_hdr(&r->res, raw);
 		if (ret < 0)
 			goto drop_sockfd;
@@ -1114,6 +1122,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->res_state == HTTP_RES_BODY) {
+		pr_debug(VERBOSE, "parsing response body\n");
 		ret = parse_bdy(&r->res.body, raw);
 		if (ret == -EAGAIN)
 			return;
