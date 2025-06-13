@@ -951,15 +951,13 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			* ignore the body when these methods is used
 			*/
 			if (strcmp(methods[r->method].name, "GET")
-			&& strcmp(methods[r->method].name, "HEAD")) {
+			&& strcmp(methods[r->method].name, "HEAD"))
 				h->req_state = HTTP_REQ_BODY;
-				return;
-			}
+		} else {
+			advance(raw, raw->off);
+			raw->off = 0;
+			h->req_state = HTTP_REQ_INIT;
 		}
-
-		advance(raw, raw->off);
-		raw->off = 0;
-		h->req_state = HTTP_REQ_INIT;
 	}
 
 	if (h->req_state == HTTP_REQ_BODY) {
@@ -1108,17 +1106,15 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 			* don't be fooled,
 			* ignore the body when HEAD method is used
 			*/
-			if (strcmp(methods[r->method].name, "HEAD")) {
+			if (strcmp(methods[r->method].name, "HEAD"))
 				h->res_state = HTTP_RES_BODY;
-				return;
-			}
+		} else {
+			write_log(h, r);
+			dequeue(&h->req_queue);
+			advance(raw, raw->off);
+			raw->off = 0;
+			h->res_state = HTTP_RES_LINE;
 		}
-
-		write_log(h, r);
-		dequeue(&h->req_queue);
-		advance(raw, raw->off);
-		raw->off = 0;
-		h->res_state = HTTP_RES_LINE;
 	}
 
 	if (h->res_state == HTTP_RES_BODY) {
