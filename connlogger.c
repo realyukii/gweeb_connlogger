@@ -972,9 +972,45 @@ drop_sockfd:
 
 static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 {
-	struct http_ctx *h = find_http_ctx(fd);
+	struct http_req *r;
+	struct http_ctx *h;
+	http_res_raw *raw;
+	int ret;
+
+	h = find_http_ctx(fd);
 	if (h == NULL)
 		return;
+	
+	raw = &h->raw_res;
+	r = h->req_queue.tail;
+
+	concat_buf(buf, raw, buf_len);
+
+	if (h->res_state == HTTP_RES_INIT) {
+		r = h->req_queue.head;
+		if (!r) {
+			pr_debug(FOCUS, "req queue is empty\n");
+			goto drop_sockfd;
+		}
+
+		h->res_state = HTTP_RES_LINE;
+	}
+
+	if (h->res_state == HTTP_RES_LINE) {
+	}
+
+	if (h->res_state == HTTP_RES_HDR) {
+	}
+
+	if (h->res_state == HTTP_RES_HDR_DONE) {
+	}
+
+	if (h->res_state == HTTP_RES_BODY) {
+	}
+
+	return;
+drop_sockfd:
+	unwatch_sockfd(h, "failed to parse remote buffer");
 }
 
 static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
