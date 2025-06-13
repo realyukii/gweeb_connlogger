@@ -410,12 +410,6 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 	return 0;
 }
 
-static void strtolower(char *str)
-{
-	for (char *p = str; *p; p++)
-		*p = tolower(*p);
-}
-
 static size_t low_len(size_t a, size_t b)
 {
 	return a < b ? a : b;
@@ -839,9 +833,8 @@ static int parse_hdr(struct http_hdrs *h, struct concated_buf *raw_buf)
 	return 0;
 }
 
-static int check_req_hdr(struct http_req *q, struct concated_buf *raw_buf)
+static int check_req_hdr(struct http_req *q)
 {
-	int ret;
 	for (size_t i = 0; i < q->hdr_list.nr_hdr; i++) {
 		struct http_hdr *h = &q->hdr_list.hdr[i];
 		if (strcasecmp(h->key, "host") == 0) {
@@ -941,7 +934,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 
 	if (h->req_state == HTTP_REQ_HDR_DONE) {
 		pr_debug(VERBOSE, "checking request header\n");
-		ret = check_req_hdr(r, raw);
+		ret = check_req_hdr(r);
 		if (ret < 0)
 			goto drop_sockfd;
 
@@ -1029,9 +1022,8 @@ static int parse_res_line(struct http_req *r, http_res_raw *raw_buf)
 	return 0;
 }
 
-static int check_res_hdr(struct http_res *r, struct concated_buf *raw_buf)
+static int check_res_hdr(struct http_res *r)
 {
-	int ret;
 	for (size_t i = 0; i < r->hdr_list.nr_hdr; i++) {
 		struct http_hdr *h = &r->hdr_list.hdr[i];
 		if (strcasecmp(h->key, "content-length") == 0) {
@@ -1097,7 +1089,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 
 	if (h->res_state == HTTP_RES_HDR_DONE) {
 		pr_debug(VERBOSE, "checking response header\n");
-		ret = check_res_hdr(&r->res, raw);
+		ret = check_res_hdr(&r->res);
 		if (ret < 0)
 			goto drop_sockfd;
 
