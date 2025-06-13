@@ -83,7 +83,7 @@ struct http_res {
 
 struct http_req {
 	/* http method */
-	char method[MAX_HTTP_METHOD_LEN];
+	enum HTTP_METHODS method;
 	/* host name */
 	char host[MAX_HOST_LEN];
 	/* a pointer to the malloc'ed buffer */
@@ -197,7 +197,7 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 		"[%s]|%s:%d|Host: %s|Method: %s|URI %s|Status: %s\n",
 		human_readable_time,
 		h->ip_addr, h->port_addr,
-		req->host, req->method, req->uri, req->res.status_code
+		req->host, methods[req->method], req->uri, req->res.status_code
 	);
 	pr_debug(VERBOSE, "URI will be freed: %p\n", req->uri);
 
@@ -344,7 +344,6 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 }
 
 enum HTTP_METHODS {
-	HTTP_UNKNOWN,
 	HTTP_GET,
 	HTTP_POST,
 	HTTP_HEAD,
@@ -353,7 +352,8 @@ enum HTTP_METHODS {
 	HTTP_DELETE,
 	HTTP_OPTIONS,
 	HTTP_CONNECT,
-	HTTP_TRACE
+	HTTP_TRACE,
+	HTTP_UNKNOWN
 };
 
 struct http_method {
@@ -597,6 +597,7 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 		pr_debug(FOCUS, "Method Unknown\n");
 		return -EINVAL;
 	}
+	r->method = m;
 
 	/*
 	* very rare scenario but still possible
@@ -942,8 +943,8 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			* don't be fooled,
 			* ignore the body when these methods is used
 			*/
-			if (strcmp(r->method, "GET")
-			&& strcmp(r->method, "HEAD")) {
+			if (strcmp(&methods[r->method], "GET")
+			&& strcmp(&methods[r->method], "HEAD")) {
 				h->req_state = HTTP_REQ_BODY;
 				return;
 			}
@@ -1102,7 +1103,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 			* don't be fooled,
 			* ignore the body when HEAD method is used
 			*/
-			if (strcmp(r->method, "HEAD")) {
+			if (strcmp(&methods[r->method], "HEAD")) {
 				h->res_state = HTTP_RES_BODY;
 				return;
 			}
