@@ -900,6 +900,8 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 
 	concat_buf(buf, raw, buf_len);
 
+	while (raw->len) {
+	
 	if (h->req_state == HTTP_REQ_INIT) {
 		r = allocate_req();
 		if (!r) {
@@ -967,6 +969,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 		h->req_state = HTTP_REQ_INIT;
 	}
 
+	}
 	return;
 drop_sockfd:
 	unwatch_sockfd(h, "failed to parse local buffer");
@@ -1057,13 +1060,14 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 		return;
 	
 	raw = &h->raw_res;
-	r = h->req_queue.head;
 
 	concat_buf(buf, raw, buf_len);
 
+	while (raw->len) {
+	r = h->req_queue.head;
 	if (!r) {
-		pr_debug(FOCUS, "req queue is empty, waiting...\n");
-		return;
+		pr_debug(FOCUS, "req queue is empty\n");
+		goto drop_sockfd;
 	}
 
 	if (h->res_state == HTTP_RES_LINE) {
@@ -1127,6 +1131,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 		h->res_state = HTTP_RES_LINE;
 	}
 
+	}
 	return;
 drop_sockfd:
 	unwatch_sockfd(h, "failed to parse remote buffer");
