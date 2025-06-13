@@ -679,9 +679,8 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 		return -EAGAIN;
 	off += 1;
 
-	/* expect a linebreak */
 	if (memcmp(&buf[off], "\r\n", 2)) {
-		pr_debug(FOCUS, "Expect a line break after request line");
+		pr_debug(FOCUS, "Expect a line break after req line");
 		return -EINVAL;
 	}
 
@@ -901,8 +900,10 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 
 	if (h->req_state == HTTP_REQ_INIT) {
 		r = allocate_req();
-		if (!r)
+		if (!r) {
+			pr_debug(FOCUS, "failed to allocate mem for req\n");
 			goto drop_sockfd;
+		}
 
 		enqueue(&h->req_queue, r);
 		h->req_state = HTTP_REQ_LINE;
@@ -970,6 +971,54 @@ drop_sockfd:
 	unwatch_sockfd(h, "failed to parse local buffer");
 }
 
+static int parse_res_line(struct http_req *r, http_res_raw *raw_buf)
+{
+	char *buf;
+	size_t off, len;
+
+	len = raw_buf->len;
+	off = 0;
+	buf = raw_buf->raw_bytes;
+
+	if (off + 7 >= len)
+		return -EAGAIN;
+	
+	if (memcmp(buf, "HTTP/1.", 7)) {
+		pr_debug(DEBUG, "probably not a HTTP packet\n");
+		return -EINVAL;
+	}
+	off += 7;
+
+	/* only support HTTP/1.1 and HTTP/1.0 */
+	if (buf[off] != '0' && buf[off] != '1') {
+		pr_debug(FOCUS, "Invalid HTTP version\n");
+		return -EINVAL;
+	}
+	off++;
+
+	if (off + 5 >= len)
+		return -EAGAIN;
+	off += 1 + 3 + 1;
+
+	while (true) {
+		if (off + 1 >= len)
+			return -EAGAIN;
+
+		if (buf[off] == '\r')
+			break;
+		off++;
+	}
+
+	if (memcmp(&buf[off], "\r\n", 2)) {
+		pr_debug(FOCUS, "Expect a line break after req line");
+		return -EINVAL;
+	}
+	off += 2;
+
+	raw_buf->off += off;	
+	return 0;
+}
+
 static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 {
 	struct http_req *r;
@@ -997,6 +1046,13 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->res_state == HTTP_RES_LINE) {
+		ret = parse_res_line(r, raw);
+		if (ret == -EAGAIN)
+			return;
+		if (ret < 0)
+			goto drop_sockfd;
+
+		h->res_state = HTTP_RES_HDR;
 	}
 
 	if (h->res_state == HTTP_RES_HDR) {
