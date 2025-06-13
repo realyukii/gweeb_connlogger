@@ -1065,7 +1065,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 		return;
 	
 	raw = &h->raw_res;
-	r = h->req_queue.tail;
+	r = h->req_queue.head;
 
 	concat_buf(buf, raw, buf_len);
 
