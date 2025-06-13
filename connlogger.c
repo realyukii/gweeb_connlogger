@@ -42,13 +42,11 @@ typedef enum {
 	HTTP_REQ_HDR,
 	HTTP_REQ_HDR_DONE,
 	HTTP_REQ_BODY,
-	HTTP_REQ_BODY_DONE,
 	HTTP_RES_INIT = 0,
 	HTTP_RES_LINE,
 	HTTP_RES_HDR,
 	HTTP_RES_HDR_DONE,
 	HTTP_RES_BODY,
-	HTTP_RES_BODY_DONE
 } parser_state;
 
 struct http_body {
@@ -758,6 +756,23 @@ static int check_req_hdr(struct http_req *q, struct concated_buf *raw_buf)
 	return 0;
 }
 
+static int parse_bdy(struct http_body *b, struct concated_buf *raw_buf)
+{
+	if (b->is_chunked) {
+		/* TODO */
+	} else if (raw_buf->len < b->content_length) {
+		/*
+		* TODO handle malformed request/response
+		* what if content length exists but no body sent?
+		* or the amount of body send is not
+		* proportional with content_length?
+		*/
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
 static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 {
 	struct http_req *r;
@@ -805,7 +820,40 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->req_state == HTTP_REQ_HDR_DONE) {
-		check_req_hdr(r, raw);
+		ret = check_req_hdr(r, raw);
+		if (ret < 0)
+			goto drop_sockfd;
+
+		if (r->body.is_chunked || r->body.content_length > 0) {
+			/*
+			* don't be fooled,
+			* ignore the body when these methods is used
+			*/
+			if (strcmp(r->method, "GET")
+			&& strcmp(r->method, "HEAD")) {
+				advance(raw, raw->off);
+				raw->off = 0;
+
+				h->req_state = HTTP_REQ_BODY;
+				return;
+			}
+		}
+
+		advance(raw, raw->off);
+		raw->off = 0;
+		h->req_state = HTTP_REQ_INIT;
+	}
+
+	if (h->req_state == HTTP_REQ_BODY) {
+		ret = parse_bdy(&r->body, raw);
+		if (ret == -EAGAIN)
+			return;
+		if (ret < 0)
+			goto drop_sockfd;
+
+		advance(raw, r->body.content_length);
+		r->body.content_length = 0;
+		h->req_state = HTTP_REQ_INIT;
 	}
 
 	return;
