@@ -758,16 +758,21 @@ static int check_req_hdr(struct http_req *q, struct concated_buf *raw_buf)
 
 static int parse_bdy(struct http_body *b, struct concated_buf *raw_buf)
 {
+	size_t len, off;
+
+	len = raw_buf->len - raw_buf->off;
 	if (b->is_chunked) {
-		/* TODO */
-	} else if (raw_buf->len < b->content_length) {
+	} else {
 		/*
 		* TODO handle malformed request/response
 		* what if content length exists but no body sent?
 		* or the amount of body send is not
 		* proportional with content_length?
 		*/
-		return -EAGAIN;
+		if (len < b->content_length)
+			return -EAGAIN;
+
+		raw_buf->off += b->content_length;
 	}
 
 	return 0;
@@ -831,9 +836,6 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			*/
 			if (strcmp(r->method, "GET")
 			&& strcmp(r->method, "HEAD")) {
-				advance(raw, raw->off);
-				raw->off = 0;
-
 				h->req_state = HTTP_REQ_BODY;
 				return;
 			}
@@ -851,8 +853,9 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 		if (ret < 0)
 			goto drop_sockfd;
 
-		advance(raw, r->body.content_length);
+		advance(raw, raw->off);
 		r->body.content_length = 0;
+		raw->off = 0;
 		h->req_state = HTTP_REQ_INIT;
 	}
 
