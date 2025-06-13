@@ -49,11 +49,18 @@ typedef enum {
 	HTTP_RES_BODY,
 } parser_state;
 
+enum chunk_state {
+	CHK_BEGIN,
+	CHK_CONTENT
+};
+
 struct http_body {
 	/* indicate the trafer-encoding is chunked */
 	bool is_chunked;
 	/* a body's content length */
 	size_t content_length;
+	size_t chk_sz;
+	enum chunk_state s;
 };
 
 struct http_hdr {
@@ -485,41 +492,71 @@ static size_t strntol(char *p, size_t len)
 static int parse_bdy_chk(struct http_body *b, struct concated_buf *raw_buf,
 			size_t len)
 {
-	size_t off, hex_len, chk_len;
+	size_t off;
 	char *buf, *p;
-
-	buf = &raw_buf->raw_bytes[raw_buf->off];
 	off = 0;
 	while (true) {
 		p = NULL;
-		while (true) {
-			if (off >= len)
-				return -EAGAIN;
+		buf = &raw_buf->raw_bytes[raw_buf->off];
 
-			if (buf[off] == ';')
-				p = &buf[off];
-
-			if (buf[off] == '\r') {
-				if (++off >= len)
+		if (b->s == CHK_BEGIN)
+			while (true) {
+				if (off + 1 >= len)
 					return -EAGAIN;
+
+				if (buf[off] == ';')
+					p = &buf[off];
+
+				if (buf[off] == '\r' && buf[off + 1] == '\n') {
+					size_t chk_len;
+					if (!p)
+						p = &buf[off];
+					
+					chk_len = p - buf;
+					b->chk_sz = strntol(buf, chk_len);
+
+					off += 2;
+					raw_buf->off += off;
+					b->s = CHK_CONTENT;
+				}
+
+				off++;
 			}
 
-			if (buf[off] == '\n') {
-				if (!p)
-					p = &buf[off - 1];
+		if (b->chk_sz == 0) {
+			if (off + 1 >= len)
+				return -EAGAIN;
 
+			if (buf[off] == '\r' && buf[off + 1] == '\n') {
+				off += 2;
+
+				raw_buf->off += off;
+				return 0;
+			}
+
+			pr_debug(FOCUS, "malformed chunked body\n");
+			return -EINVAL;
+
+		}
+
+		while (true) {
+			off += b->chk_sz;
+			if (off + 2 >= len)
+				return -EAGAIN;
+
+			if (buf[off] == '\r' && buf[off + 1] == '\n') {
+				off += 2;
+
+				raw_buf->off += off;
+				off = 0;
+				b->s = CHK_BEGIN;
 				break;
 			}
 
-			off++;
+			pr_debug(FOCUS, "invalid chunk len\n");
+			return -EINVAL;
 		}
-		hex_len = p - buf;
-		chk_len = strntol(buf, hex_len);
-		if (chk_len == 0)
-			break;
 	}
-
-	return off;
 }
 
 static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
@@ -830,8 +867,7 @@ static int parse_bdy(struct http_body *b, struct concated_buf *raw_buf)
 		int ret = parse_bdy_chk(b, raw_buf, len);
 		if (ret < 0)
 			return ret;
-
-		raw_buf->off += ret;
+		b->is_chunked = false;
 	} else {
 		/*
 		* TODO handle malformed request/response
