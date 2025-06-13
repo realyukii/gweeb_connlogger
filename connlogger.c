@@ -1109,12 +1109,25 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 			}
 		}
 
+		write_log(h, r);
+		dequeue(&h->req_queue);
 		advance(raw, raw->off);
 		raw->off = 0;
 		h->res_state = HTTP_RES_INIT;
 	}
 
 	if (h->res_state == HTTP_RES_BODY) {
+		ret = parse_bdy(&r->res.body, raw);
+		if (ret == -EAGAIN)
+			return;
+		if (ret < 0)
+			goto drop_sockfd;
+
+		write_log(h, r);
+		dequeue(&h->req_queue);
+		advance(raw, raw->off);
+		raw->off = 0;
+		h->res_state = HTTP_RES_INIT;
 	}
 
 	return;
