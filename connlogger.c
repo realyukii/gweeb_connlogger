@@ -189,9 +189,10 @@ static void dequeue(struct http_req_queue *q)
 	if (!q->head)
 		q->tail = NULL;
 
-	pr_debug(VERBOSE, "URI will be freed: %p\n", r->uri);
-	if (r->uri)
+	if (r->uri) {
+		pr_debug(VERBOSE, "URI will be freed: %p\n", r->uri);
 		free(r->uri);
+	}
 
 	for (size_t i = 0; i < r->hdr_list.nr_hdr; i++) {
 		struct http_hdr *h = &r->hdr_list.hdr[i];
@@ -1058,12 +1059,12 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	raw = &h->raw_res;
 	r = h->req_queue.head;
 
-	if (!r) {
-		pr_debug(FOCUS, "req queue is empty\n");
-		goto drop_sockfd;
-	}
-
 	concat_buf(buf, raw, buf_len);
+
+	if (!r) {
+		pr_debug(FOCUS, "req queue is empty, waiting...\n");
+		return;
+	}
 
 	if (h->res_state == HTTP_RES_LINE) {
 		pr_debug(VERBOSE, "parsing response line\n");
@@ -1103,6 +1104,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 		} else {
 			write_log(h, r);
 			dequeue(&h->req_queue);
+			pr_debug(VERBOSE, "dequeue request\n");
 			advance(raw, raw->off);
 			raw->off = 0;
 			h->res_state = HTTP_RES_LINE;
@@ -1119,6 +1121,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 
 		write_log(h, r);
 		dequeue(&h->req_queue);
+		pr_debug(VERBOSE, "dequeue request\n");
 		advance(raw, raw->off);
 		raw->off = 0;
 		h->res_state = HTTP_RES_LINE;
