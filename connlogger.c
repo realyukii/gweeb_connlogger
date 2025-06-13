@@ -756,6 +756,31 @@ static int check_req_hdr(struct http_req *q, struct concated_buf *raw_buf)
 	return 0;
 }
 
+/* the function only accept string with base 16 ascii-hex */
+static size_t strntol(char *p, size_t len)
+{
+	size_t acc, off;
+
+	off = acc = 0;
+	while (off < len) {
+		unsigned digit;
+		char c = p[off];
+
+		if (c >= '0' && c <= '9')
+			digit = c - '0';
+		else if (c >= 'a' && c <= 'f')
+			digit = c - 'a' + 10;
+		else if (c >= 'A' && c <= 'F')
+			digit = c - 'A'  + 10;
+		else break;
+
+		acc = acc * 16 + digit;
+		off++;
+	}
+
+	return acc;
+}
+
 static int parse_bdy(struct http_body *b, struct concated_buf *raw_buf)
 {
 	size_t len, off;
