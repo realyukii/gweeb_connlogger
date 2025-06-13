@@ -126,6 +126,7 @@ static size_t current_pool_sz = DEFAULT_POOL_SZ;
 static size_t occupied_pool = 0;
 static struct http_ctx *ctx_pool = NULL;
 static FILE *file_log = NULL;
+static const char http_ver[] = "HTTP/1.";
 
 static struct http_req *allocate_req(void)
 {
@@ -662,8 +663,7 @@ static int parse_req_line(struct http_req *r, http_req_raw *raw_buf)
 	if (off + 7 >= len)
 		return -EAGAIN;
 
-	static const char http_ver[] = "HTTP/1.";
-	if (memcmp(&buf[off], "HTTP/1.", 7)) {
+	if (memcmp(&buf[off], http_ver, 7)) {
 		pr_debug(FOCUS, "Expect HTTP/1.x version\n");
 		return -EINVAL;
 	}
@@ -983,7 +983,7 @@ static int parse_res_line(struct http_req *r, http_res_raw *raw_buf)
 	if (off + 7 >= len)
 		return -EAGAIN;
 	
-	if (memcmp(buf, "HTTP/1.", 7)) {
+	if (memcmp(buf, http_ver, 7)) {
 		pr_debug(DEBUG, "probably not a HTTP packet\n");
 		return -EINVAL;
 	}
