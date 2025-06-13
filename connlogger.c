@@ -918,9 +918,6 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->req_state == HTTP_REQ_LINE) {
-		if (!r)
-			goto drop_sockfd;
-
 		ret = parse_req_line(r, raw);
 		if (ret == -EINVAL)
 			goto drop_sockfd;
