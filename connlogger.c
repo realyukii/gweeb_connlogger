@@ -42,8 +42,7 @@ typedef enum {
 	HTTP_REQ_HDR,
 	HTTP_REQ_HDR_DONE,
 	HTTP_REQ_BODY,
-	HTTP_RES_INIT = 0,
-	HTTP_RES_LINE,
+	HTTP_RES_LINE = 0,
 	HTTP_RES_HDR,
 	HTTP_RES_HDR_DONE,
 	HTTP_RES_BODY,
@@ -1067,18 +1066,12 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	raw = &h->raw_res;
 	r = h->req_queue.head;
 
-	concat_buf(buf, raw, buf_len);
-
-	if (h->res_state == HTTP_RES_INIT) {
-		r = h->req_queue.head;
-
-		h->res_state = HTTP_RES_LINE;
-	}
-
 	if (!r) {
 		pr_debug(FOCUS, "req queue is empty\n");
 		goto drop_sockfd;
 	}
+
+	concat_buf(buf, raw, buf_len);
 
 	if (h->res_state == HTTP_RES_LINE) {
 		ret = parse_res_line(r, raw);
@@ -1120,7 +1113,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 		dequeue(&h->req_queue);
 		advance(raw, raw->off);
 		raw->off = 0;
-		h->res_state = HTTP_RES_INIT;
+		h->res_state = HTTP_RES_LINE;
 	}
 
 	if (h->res_state == HTTP_RES_BODY) {
@@ -1134,7 +1127,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 		dequeue(&h->req_queue);
 		advance(raw, raw->off);
 		raw->off = 0;
-		h->res_state = HTTP_RES_INIT;
+		h->res_state = HTTP_RES_LINE;
 	}
 
 	return;
