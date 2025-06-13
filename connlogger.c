@@ -1063,12 +1063,13 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 
 	if (h->res_state == HTTP_RES_INIT) {
 		r = h->req_queue.head;
-		if (!r) {
-			pr_debug(FOCUS, "req queue is empty\n");
-			goto drop_sockfd;
-		}
 
 		h->res_state = HTTP_RES_LINE;
+	}
+
+	if (!r) {
+		pr_debug(FOCUS, "req queue is empty\n");
+		goto drop_sockfd;
 	}
 
 	if (h->res_state == HTTP_RES_LINE) {
