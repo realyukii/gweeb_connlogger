@@ -1022,6 +1022,29 @@ static int parse_res_line(struct http_req *r, http_res_raw *raw_buf)
 	return 0;
 }
 
+static int check_res_hdr(struct http_res *r, struct concated_buf *raw_buf)
+{
+	int ret;
+	for (size_t i = 0; i < r->hdr_list.nr_hdr; i++) {
+		struct http_hdr *h = &r->hdr_list.hdr[i];
+		if (strcasecmp(h->key, "content-length") == 0) {
+			if (r->body.is_chunked)
+				return -EINVAL;
+
+			r->body.content_length = atol(h->value);
+		} else if (strcasecmp(h->key, "transfer-encoding") == 0) {
+			if (r->body.content_length > 0)
+				return -EINVAL;
+
+			char *p = strstr(h->value, "chunked");
+			if (p)
+				r->body.is_chunked = true;
+		}
+	}
+
+	return 0;
+}
+
 static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 {
 	struct http_req *r;
@@ -1059,9 +1082,34 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->res_state == HTTP_RES_HDR) {
+		ret = parse_hdr(&r->res.hdr_list, raw);
+		if (ret == -EAGAIN)
+			return;
+		if (ret < 0)
+			goto drop_sockfd;
+
+		h->res_state = HTTP_RES_HDR_DONE;
 	}
 
 	if (h->res_state == HTTP_RES_HDR_DONE) {
+		ret = check_res_hdr(&r->res, raw);
+		if (ret < 0)
+			goto drop_sockfd;
+
+		if (r->res.body.is_chunked || r->res.body.content_length > 0) {
+			/*
+			* don't be fooled,
+			* ignore the body when HEAD method is used
+			*/
+			if (strcmp(r->method, "HEAD")) {
+				h->res_state = HTTP_RES_BODY;
+				return;
+			}
+		}
+
+		advance(raw, raw->off);
+		raw->off = 0;
+		h->res_state = HTTP_RES_INIT;
 	}
 
 	if (h->res_state == HTTP_RES_BODY) {
