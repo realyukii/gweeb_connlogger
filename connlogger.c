@@ -189,6 +189,7 @@ static void dequeue(struct http_req_queue *q)
 	if (!q->head)
 		q->tail = NULL;
 
+	pr_debug(VERBOSE, "URI will be freed: %p\n", r->uri);
 	if (r->uri)
 		free(r->uri);
 
@@ -236,7 +237,6 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 		h->ip_addr, h->port_addr,
 		req->host, methods[req->method].name, req->uri, req->res.status_code
 	);
-	pr_debug(VERBOSE, "URI will be freed: %p\n", req->uri);
 
 	if (ret < 0) {
 		pr_debug(DEBUG, "failed to write parsed data to the file\n");
