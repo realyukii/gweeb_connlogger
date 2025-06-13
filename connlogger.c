@@ -901,75 +901,77 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 	concat_buf(buf, raw, buf_len);
 
 	while (raw->len) {
-	
-	if (h->req_state == HTTP_REQ_INIT) {
-		r = allocate_req();
-		if (!r) {
-			pr_debug(FOCUS, "failed to allocate mem for req\n");
-			goto drop_sockfd;
+		if (h->req_state == HTTP_REQ_INIT) {
+			r = allocate_req();
+			if (!r) {
+				pr_debug(
+					FOCUS,
+					"failed to allocate mem for req\n"
+				);
+				goto drop_sockfd;
+			}
+
+			enqueue(&h->req_queue, r);
+			pr_debug(VERBOSE, "queue a new request\n");
+			h->req_state = HTTP_REQ_LINE;
 		}
 
-		enqueue(&h->req_queue, r);
-		pr_debug(VERBOSE, "queue a new request\n");
-		h->req_state = HTTP_REQ_LINE;
-	}
+		if (h->req_state == HTTP_REQ_LINE) {
+			pr_debug(VERBOSE, "parsing request line\n");
+			ret = parse_req_line(r, raw);
+			if (ret == -EINVAL)
+				goto drop_sockfd;
+			else if (ret == -EAGAIN)
+				return;
+			h->req_state = HTTP_REQ_HDR;
+		}
 
-	if (h->req_state == HTTP_REQ_LINE) {
-		pr_debug(VERBOSE, "parsing request line\n");
-		ret = parse_req_line(r, raw);
-		if (ret == -EINVAL)
-			goto drop_sockfd;
-		else if (ret == -EAGAIN)
-			return;
-		h->req_state = HTTP_REQ_HDR;
-	}
+		if (h->req_state == HTTP_REQ_HDR) {
+			pr_debug(VERBOSE, "parsing request header\n");
+			ret = parse_hdr(&r->hdr_list, raw);
+			if (ret == -EAGAIN)
+				return;
+			if (ret < 0)
+				goto drop_sockfd;
 
-	if (h->req_state == HTTP_REQ_HDR) {
-		pr_debug(VERBOSE, "parsing request header\n");
-		ret = parse_hdr(&r->hdr_list, raw);
-		if (ret == -EAGAIN)
-			return;
-		if (ret < 0)
-			goto drop_sockfd;
+			h->req_state = HTTP_REQ_HDR_DONE;
+		}
 
-		h->req_state = HTTP_REQ_HDR_DONE;
-	}
+		if (h->req_state == HTTP_REQ_HDR_DONE) {
+			pr_debug(VERBOSE, "checking request header\n");
+			ret = check_req_hdr(r);
+			if (ret < 0)
+				goto drop_sockfd;
 
-	if (h->req_state == HTTP_REQ_HDR_DONE) {
-		pr_debug(VERBOSE, "checking request header\n");
-		ret = check_req_hdr(r);
-		if (ret < 0)
-			goto drop_sockfd;
+			if (r->body.is_chunked || r->body.content_length > 0) {
+				/*
+				* don't be fooled,
+				* ignore the body when these methods is used
+				*/
+				if (strcmp(methods[r->method].name, "GET")
+				&& strcmp(methods[r->method].name, "HEAD"))
+					h->req_state = HTTP_REQ_BODY;
+			} else {
+				advance(raw, raw->off);
+				raw->off = 0;
+				h->req_state = HTTP_REQ_INIT;
+			}
+		}
 
-		if (r->body.is_chunked || r->body.content_length > 0) {
-			/*
-			* don't be fooled,
-			* ignore the body when these methods is used
-			*/
-			if (strcmp(methods[r->method].name, "GET")
-			&& strcmp(methods[r->method].name, "HEAD"))
-				h->req_state = HTTP_REQ_BODY;
-		} else {
+		if (h->req_state == HTTP_REQ_BODY) {
+			pr_debug(VERBOSE, "parsing request body\n");
+			ret = parse_bdy(&r->body, raw);
+			if (ret == -EAGAIN)
+				return;
+			if (ret < 0)
+				goto drop_sockfd;
+
 			advance(raw, raw->off);
 			raw->off = 0;
 			h->req_state = HTTP_REQ_INIT;
 		}
 	}
 
-	if (h->req_state == HTTP_REQ_BODY) {
-		pr_debug(VERBOSE, "parsing request body\n");
-		ret = parse_bdy(&r->body, raw);
-		if (ret == -EAGAIN)
-			return;
-		if (ret < 0)
-			goto drop_sockfd;
-
-		advance(raw, raw->off);
-		raw->off = 0;
-		h->req_state = HTTP_REQ_INIT;
-	}
-
-	}
 	return;
 drop_sockfd:
 	unwatch_sockfd(h, "failed to parse local buffer");
@@ -1064,48 +1066,66 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	concat_buf(buf, raw, buf_len);
 
 	while (raw->len) {
-	r = h->req_queue.head;
-	if (!r) {
-		pr_debug(FOCUS, "req queue is empty\n");
-		goto drop_sockfd;
-	}
-
-	if (h->res_state == HTTP_RES_LINE) {
-		pr_debug(VERBOSE, "parsing response line\n");
-		ret = parse_res_line(r, raw);
-		if (ret == -EAGAIN)
-			return;
-		if (ret < 0)
+		r = h->req_queue.head;
+		if (!r) {
+			pr_debug(FOCUS, "req queue is empty\n");
 			goto drop_sockfd;
+		}
 
-		h->res_state = HTTP_RES_HDR;
-	}
+		if (h->res_state == HTTP_RES_LINE) {
+			pr_debug(VERBOSE, "parsing response line\n");
+			ret = parse_res_line(r, raw);
+			if (ret == -EAGAIN)
+				return;
+			if (ret < 0)
+				goto drop_sockfd;
 
-	if (h->res_state == HTTP_RES_HDR) {
-		pr_debug(VERBOSE, "parsing response header\n");
-		ret = parse_hdr(&r->res.hdr_list, raw);
-		if (ret == -EAGAIN)
-			return;
-		if (ret < 0)
-			goto drop_sockfd;
+			h->res_state = HTTP_RES_HDR;
+		}
 
-		h->res_state = HTTP_RES_HDR_DONE;
-	}
+		if (h->res_state == HTTP_RES_HDR) {
+			pr_debug(VERBOSE, "parsing response header\n");
+			ret = parse_hdr(&r->res.hdr_list, raw);
+			if (ret == -EAGAIN)
+				return;
+			if (ret < 0)
+				goto drop_sockfd;
 
-	if (h->res_state == HTTP_RES_HDR_DONE) {
-		pr_debug(VERBOSE, "checking response header\n");
-		ret = check_res_hdr(&r->res);
-		if (ret < 0)
-			goto drop_sockfd;
+			h->res_state = HTTP_RES_HDR_DONE;
+		}
 
-		if (r->res.body.is_chunked || r->res.body.content_length > 0) {
-			/*
-			* don't be fooled,
-			* ignore the body when HEAD method is used
-			*/
-			if (strcmp(methods[r->method].name, "HEAD"))
-				h->res_state = HTTP_RES_BODY;
-		} else {
+		if (h->res_state == HTTP_RES_HDR_DONE) {
+			pr_debug(VERBOSE, "checking response header\n");
+			ret = check_res_hdr(&r->res);
+			if (ret < 0)
+				goto drop_sockfd;
+
+			if (r->res.body.is_chunked ||
+				r->res.body.content_length > 0) {
+				/*
+				* don't be fooled,
+				* ignore the body when HEAD method is used
+				*/
+				if (strcmp(methods[r->method].name, "HEAD"))
+					h->res_state = HTTP_RES_BODY;
+			} else {
+				write_log(h, r);
+				dequeue(&h->req_queue);
+				pr_debug(VERBOSE, "dequeue request\n");
+				advance(raw, raw->off);
+				raw->off = 0;
+				h->res_state = HTTP_RES_LINE;
+			}
+		}
+
+		if (h->res_state == HTTP_RES_BODY) {
+			pr_debug(VERBOSE, "parsing response body\n");
+			ret = parse_bdy(&r->res.body, raw);
+			if (ret == -EAGAIN)
+				return;
+			if (ret < 0)
+				goto drop_sockfd;
+
 			write_log(h, r);
 			dequeue(&h->req_queue);
 			pr_debug(VERBOSE, "dequeue request\n");
@@ -1113,25 +1133,9 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 			raw->off = 0;
 			h->res_state = HTTP_RES_LINE;
 		}
-	}
-
-	if (h->res_state == HTTP_RES_BODY) {
-		pr_debug(VERBOSE, "parsing response body\n");
-		ret = parse_bdy(&r->res.body, raw);
-		if (ret == -EAGAIN)
-			return;
-		if (ret < 0)
-			goto drop_sockfd;
-
-		write_log(h, r);
-		dequeue(&h->req_queue);
-		pr_debug(VERBOSE, "dequeue request\n");
-		advance(raw, raw->off);
-		raw->off = 0;
-		h->res_state = HTTP_RES_LINE;
-	}
 
 	}
+
 	return;
 drop_sockfd:
 	unwatch_sockfd(h, "failed to parse remote buffer");
