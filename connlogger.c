@@ -200,6 +200,13 @@ static void dequeue(struct http_req_queue *q)
 	}
 	free(r->hdr_list.hdr);
 
+	for (size_t i = 0; i < r->res.hdr_list.nr_hdr; i++) {
+		struct http_hdr *h = &r->res.hdr_list.hdr[i];
+		free(h->key);
+		free(h->value);
+	}
+	free(r->res.hdr_list.hdr);
+
 	free(r);
 }
 
