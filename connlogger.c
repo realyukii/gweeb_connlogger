@@ -228,7 +228,7 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 		"[%s]|%s:%d|Host: %s|Method: %s|URI %s|Status: %s\n",
 		human_readable_time,
 		h->ip_addr, h->port_addr,
-		req->host, methods[req->method], req->uri, req->res.status_code
+		req->host, methods[req->method].name, req->uri, req->res.status_code
 	);
 	pr_debug(VERBOSE, "URI will be freed: %p\n", req->uri);
 
@@ -943,8 +943,8 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			* don't be fooled,
 			* ignore the body when these methods is used
 			*/
-			if (strcmp(&methods[r->method], "GET")
-			&& strcmp(&methods[r->method], "HEAD")) {
+			if (strcmp(methods[r->method].name, "GET")
+			&& strcmp(methods[r->method].name, "HEAD")) {
 				h->req_state = HTTP_REQ_BODY;
 				return;
 			}
@@ -1103,7 +1103,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 			* don't be fooled,
 			* ignore the body when HEAD method is used
 			*/
-			if (strcmp(&methods[r->method], "HEAD")) {
+			if (strcmp(methods[r->method].name, "HEAD")) {
 				h->res_state = HTTP_RES_BODY;
 				return;
 			}
