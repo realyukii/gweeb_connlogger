@@ -998,7 +998,10 @@ static int parse_res_line(struct http_req *r, http_res_raw *raw_buf)
 
 	if (off + 5 >= len)
 		return -EAGAIN;
-	off += 1 + 3 + 1;
+
+	off += 1;
+	memcpy(r->res.status_code, &buf[off], 3);
+	off += 3 + 1;
 
 	while (true) {
 		if (off + 1 >= len)
