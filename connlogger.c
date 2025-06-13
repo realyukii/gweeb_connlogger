@@ -867,7 +867,6 @@ static int parse_bdy(struct http_body *b, struct concated_buf *raw_buf)
 		int ret = parse_bdy_chk(b, raw_buf, len);
 		if (ret < 0)
 			return ret;
-		b->is_chunked = false;
 	} else {
 		/*
 		* TODO handle malformed request/response
@@ -879,7 +878,6 @@ static int parse_bdy(struct http_body *b, struct concated_buf *raw_buf)
 			return -EAGAIN;
 
 		raw_buf->off += b->content_length;
-		b->content_length = 0;
 	}
 
 	return 0;
