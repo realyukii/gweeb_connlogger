@@ -732,7 +732,7 @@ static int add_hdr(struct http_hdrs *h, char *k, char *v, size_t kl, size_t vl)
 	return 0;
 }
 
-static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
+static int parse_hdr(struct http_hdrs *h, struct concated_buf *raw_buf)
 {
 	char *buf = &raw_buf->raw_bytes[raw_buf->off];
 	size_t len, off;
@@ -822,7 +822,7 @@ static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
 		raw_buf->off += off;
 
 		/* add the parsed key-value pair to the list */
-		ret = add_hdr(&q->hdr_list, key, value, key_len, val_len);
+		ret = add_hdr(h, key, value, key_len, val_len);
 		if (ret == -ENOMEM)
 			pr_debug(FOCUS, "not enough memory\n");
 		if (ret < 0)
@@ -922,7 +922,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 	}
 
 	if (h->req_state == HTTP_REQ_HDR) {
-		ret = parse_hdr(r, raw);
+		ret = parse_hdr(&r->hdr_list, raw);
 		if (ret == -EAGAIN)
 			return;
 		if (ret < 0)
