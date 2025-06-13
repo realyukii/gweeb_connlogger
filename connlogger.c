@@ -783,10 +783,39 @@ static size_t strntol(char *p, size_t len)
 
 static int parse_bdy(struct http_body *b, struct concated_buf *raw_buf)
 {
-	size_t len, off;
+	size_t len;
 
 	len = raw_buf->len - raw_buf->off;
 	if (b->is_chunked) {
+		size_t off, hex_len, chk_len;
+		char *buf, *p;
+
+		buf = &raw_buf->raw_bytes[raw_buf->off];
+		p = NULL;
+		off = 0;
+		while (true) {
+			if (off >= len)
+				return -EAGAIN;
+
+			if (buf[off] == ';')
+				p = &buf[off];
+
+			if (buf[off] == '\r') {
+				if (++off >= len)
+					return -EAGAIN;
+			}
+
+			if (buf[off] == '\n') {
+				if (!p)
+					p = &buf[off - 1];
+				
+				break;
+			}
+
+			off++;
+		}
+		hex_len = p - buf;
+		chk_len = strntol(buf, hex_len);
 	} else {
 		/*
 		* TODO handle malformed request/response
