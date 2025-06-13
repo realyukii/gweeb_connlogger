@@ -81,6 +81,37 @@ struct http_res {
 	struct http_body body;
 };
 
+enum HTTP_METHODS {
+	HTTP_GET,
+	HTTP_POST,
+	HTTP_HEAD,
+	HTTP_PATCH,
+	HTTP_PUT,
+	HTTP_DELETE,
+	HTTP_OPTIONS,
+	HTTP_CONNECT,
+	HTTP_TRACE,
+	HTTP_UNKNOWN
+};
+
+struct http_method {
+	const char *name;
+	size_t len;
+	enum HTTP_METHODS id;
+};
+
+static const struct http_method methods[] = {
+	{ "GET",	3,	HTTP_GET },
+	{ "POST",	4,	HTTP_POST },
+	{ "HEAD",	4,	HTTP_HEAD },
+	{ "PATCH",	5,	HTTP_PATCH },
+	{ "PUT",	3,	HTTP_PUT },
+	{ "DELETE",	6,	HTTP_DELETE},
+	{ "OPTIONS",	7,	HTTP_OPTIONS },
+	{ "CONNECT",	7,	HTTP_CONNECT },
+	{ "TRACE",	5,	HTTP_TRACE }
+};
+
 struct http_req {
 	/* http method */
 	enum HTTP_METHODS method;
@@ -342,37 +373,6 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 
 	occupied_pool--;
 }
-
-enum HTTP_METHODS {
-	HTTP_GET,
-	HTTP_POST,
-	HTTP_HEAD,
-	HTTP_PATCH,
-	HTTP_PUT,
-	HTTP_DELETE,
-	HTTP_OPTIONS,
-	HTTP_CONNECT,
-	HTTP_TRACE,
-	HTTP_UNKNOWN
-};
-
-struct http_method {
-	const char *name;
-	size_t len;
-	enum HTTP_METHODS id;
-};
-
-static const struct http_method methods[] = {
-	{ "GET",	3,	HTTP_GET },
-	{ "POST",	4,	HTTP_POST },
-	{ "HEAD",	4,	HTTP_HEAD },
-	{ "PATCH",	5,	HTTP_PATCH },
-	{ "PUT",	3,	HTTP_PUT },
-	{ "DELETE",	6,	HTTP_DELETE},
-	{ "OPTIONS",	7,	HTTP_OPTIONS },
-	{ "CONNECT",	7,	HTTP_CONNECT },
-	{ "TRACE",	5,	HTTP_TRACE }
-};
 
 static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 {
