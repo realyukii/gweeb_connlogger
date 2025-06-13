@@ -878,6 +878,7 @@ static int parse_bdy(struct http_body *b, struct concated_buf *raw_buf)
 			return -EAGAIN;
 
 		raw_buf->off += b->content_length;
+		b->content_length = 0;
 	}
 
 	return 0;
@@ -961,7 +962,6 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			goto drop_sockfd;
 
 		advance(raw, raw->off);
-		r->body.content_length = 0;
 		raw->off = 0;
 		h->req_state = HTTP_REQ_INIT;
 	}
