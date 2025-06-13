@@ -655,8 +655,10 @@ static int parse_hdr(struct http_req *q, struct concated_buf *raw_buf)
 			return -EAGAIN;
 
 		/* looking for end of header signal */
-		if (memcmp(&buf[off], "\r\n", 2) == 0)
+		if (memcmp(&buf[off], "\r\n", 2) == 0) {
+			raw_buf->off += 2;
 			break;
+		}
 
 		/* parsing key of http header */
 		while (true) {
