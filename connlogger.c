@@ -160,6 +160,7 @@ static size_t occupied_pool = 0;
 static struct http_ctx *ctx_pool = NULL;
 static FILE *file_log = NULL;
 static const char http_ver[] = "HTTP/1.";
+static char io_buf[1024 * 1024 * 8];
 
 static struct http_req *allocate_req(void)
 {
@@ -269,7 +270,7 @@ static int init(void)
 		return -1;
 	}
 
-	setvbuf(file_log, NULL, _IOLBF, 0);
+	setvbuf(file_log, io_buf, _IOFBF, sizeof(io_buf));
 	ctx_pool = calloc(DEFAULT_POOL_SZ, sizeof(struct http_ctx));
 	if (ctx_pool == NULL) {
 		pr_debug(DEBUG, "fail to allocate dynamic memory\n");
@@ -1173,6 +1174,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 
 	}
 
+	fflush(file_log);
 	return;
 drop_sockfd:
 	unwatch_sockfd(h, "failed to parse remote buffer");
