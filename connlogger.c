@@ -290,8 +290,10 @@ static void sync_buf(struct concated_buf *ptr)
 	if (ptr->raw_bytes == ptr->orig)
 		return;
 	
-	if (!ptr->len)
+	if (!ptr->len) {
+		ptr->raw_bytes = ptr->orig;
 		return;
+	}
 
 	memmove(ptr->orig, ptr->raw_bytes, ptr->len);
 	ptr->raw_bytes = ptr->orig;
