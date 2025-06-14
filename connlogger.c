@@ -13,6 +13,7 @@
 #ifndef DEBUG_LEVEL
 #define DEBUG_LEVEL 0
 #endif
+#define COMPLETED 1
 #define VERBOSE 3
 #define DEBUG 2
 #define FOCUS 1
@@ -1052,7 +1053,7 @@ static int check_res_hdr(struct http_res *r)
 					FOCUS,
 					"closing connection due to connection: close\n"
 				);
-				return -EINVAL;
+				return COMPLETED;
 			}
 		} else if (strcasecmp(h->key, "transfer-encoding") == 0) {
 			if (r->body.content_length > 0) {
@@ -1134,6 +1135,10 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 				write_log(h, r);
 				dequeue(&h->req_queue);
 				pr_debug(VERBOSE, "dequeue request\n");
+				if (ret == COMPLETED) {
+					unwatch_sockfd(h, "this sockfd is done");
+					return;
+				}
 				advance(raw, raw->off);
 				raw->off = 0;
 				h->res_state = HTTP_RES_LINE;
