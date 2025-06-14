@@ -1090,6 +1090,9 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	http_res_raw *raw;
 	int ret;
 
+	if (!buf_len)
+		return;
+
 	h = find_http_ctx(fd);
 	if (h == NULL)
 		return;
