@@ -737,8 +737,10 @@ static int add_hdr(struct http_hdrs *h, char *k, char *v, size_t kl, size_t vl)
 		return -ENOMEM;
 	
 	vp = malloc(vl + 1);
-	if (!vp)
+	if (!vp) {
+		free(kp);
 		return -ENOMEM;
+	}
 
 	memcpy(kp, k, kl);
 	kp[kl] = '\0';
