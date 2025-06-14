@@ -294,7 +294,6 @@ static void sync_buf(struct concated_buf *ptr)
 		return;
 
 	memmove(ptr->orig, ptr->raw_bytes, ptr->len);
-	ptr->raw_bytes[ptr->len] = '\0';
 	ptr->raw_bytes = ptr->orig;
 }
 
