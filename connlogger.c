@@ -336,7 +336,7 @@ static void push_sockfd(int sockfd)
 
 		c[i].raw_res.raw_bytes = calloc(1, DEFAULT_RAW_CAP + 1);
 		if (!c[i].raw_res.raw_bytes) {
-			free(!c[i].raw_req.raw_bytes);
+			free(c[i].raw_req.raw_bytes);
 			break;
 		}
 
