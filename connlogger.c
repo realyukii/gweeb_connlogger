@@ -713,20 +713,12 @@ static int add_hdr(struct http_hdrs *h, char *k, char *v, size_t kl, size_t vl)
 	char *kp, *vp;
 	struct http_hdr *hdr, *tmp_hdr;
 
-	if (!h->hdr) {
-		h->hdr = malloc(sizeof(*h->hdr) * 1);
-		if (!h->hdr)
-			return -ENOMEM;
+	tmp_hdr = realloc(h->hdr, sizeof(*tmp_hdr) * (h->nr_hdr + 1));
+	if (!tmp_hdr) {
+		free(h->hdr);
+		return -ENOMEM;
 	}
-
-	if (h->nr_hdr > 0) {
-		tmp_hdr = realloc(h->hdr, sizeof(*tmp_hdr) * (h->nr_hdr + 1));
-		if (!tmp_hdr) {
-			free(h->hdr);
-			return -ENOMEM;
-		}
-		h->hdr = tmp_hdr;
-	}
+	h->hdr = tmp_hdr;
 
 	hdr = &h->hdr[h->nr_hdr];
 
