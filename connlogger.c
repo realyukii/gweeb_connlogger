@@ -497,14 +497,17 @@ static int parse_bdy_chk(struct http_body *b, struct concated_buf *raw_buf,
 	size_t off;
 	char *buf, *p;
 	off = 0;
+	buf = &raw_buf->raw_bytes[raw_buf->off];
+	// asm volatile("int3");
 	while (true) {
 		p = NULL;
-		buf = &raw_buf->raw_bytes[raw_buf->off];
 
 		if (b->s == CHK_BEGIN)
 			while (true) {
-				if (off + 1 >= len)
+				if (off + 1 >= len) {
+					// asm volatile ("int3");
 					return -EAGAIN;
+				}
 
 				if (buf[off] == ';')
 					p = &buf[off];
@@ -515,19 +518,25 @@ static int parse_bdy_chk(struct http_body *b, struct concated_buf *raw_buf,
 						p = &buf[off];
 					
 					chk_len = p - buf;
+					// asm volatile ("int3");
 					b->chk_sz = strntol(buf, chk_len);
 
 					off += 2;
 					raw_buf->off += off;
+					buf = &raw_buf->raw_bytes[raw_buf->off];
+					off = 0;
 					b->s = CHK_CONTENT;
+					break;
 				}
 
 				off++;
 			}
 
 		if (b->chk_sz == 0) {
-			if (off + 1 >= len)
+			// asm volatile ("int3");
+			if (off + 1 >= len) {
 				return -EAGAIN;
+			}
 
 			if (buf[off] == '\r' && buf[off + 1] == '\n') {
 				off += 2;
@@ -538,18 +547,21 @@ static int parse_bdy_chk(struct http_body *b, struct concated_buf *raw_buf,
 
 			pr_debug(FOCUS, "malformed chunked body\n");
 			return -EINVAL;
-
 		}
 
 		while (true) {
+			// asm volatile ("int3");
 			off += b->chk_sz;
-			if (off + 2 >= len)
+			if (off + 1 >= len) {
 				return -EAGAIN;
+			}
 
 			if (buf[off] == '\r' && buf[off + 1] == '\n') {
 				off += 2;
+				// asm volatile("int3");
 
 				raw_buf->off += off;
+				buf = &raw_buf->raw_bytes[raw_buf->off];
 				off = 0;
 				b->s = CHK_BEGIN;
 				break;
