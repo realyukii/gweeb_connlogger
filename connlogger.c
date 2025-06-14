@@ -994,7 +994,6 @@ static int parse_res_line(struct http_req *r, http_res_raw *raw_buf)
 		return -EAGAIN;
 	
 	if (memcmp(buf, http_ver, 7)) {
-		asm volatile("int3");
 		pr_debug(FOCUS, "probably not a HTTP packet\n");
 		return -EINVAL;
 	}
