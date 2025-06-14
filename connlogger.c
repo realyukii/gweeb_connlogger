@@ -340,7 +340,7 @@ static void push_sockfd(int sockfd)
 		);
 
 		pr_debug(
-			DEBUG,
+			FOCUS,
 			"new sockfd %d is registered to the pool\n",
 			sockfd
 		);
@@ -994,7 +994,8 @@ static int parse_res_line(struct http_req *r, http_res_raw *raw_buf)
 		return -EAGAIN;
 	
 	if (memcmp(buf, http_ver, 7)) {
-		pr_debug(DEBUG, "probably not a HTTP packet\n");
+		asm volatile("int3");
+		pr_debug(FOCUS, "probably not a HTTP packet\n");
 		return -EINVAL;
 	}
 	off += 7;
@@ -1023,7 +1024,7 @@ static int parse_res_line(struct http_req *r, http_res_raw *raw_buf)
 	}
 
 	if (memcmp(&buf[off], "\r\n", 2)) {
-		pr_debug(FOCUS, "Expect a line break after req line");
+		pr_debug(FOCUS, "Expect a line break after req line\n");
 		return -EINVAL;
 	}
 	off += 2;
@@ -1037,13 +1038,23 @@ static int check_res_hdr(struct http_res *r)
 	for (size_t i = 0; i < r->hdr_list.nr_hdr; i++) {
 		struct http_hdr *h = &r->hdr_list.hdr[i];
 		if (strcasecmp(h->key, "content-length") == 0) {
-			if (r->body.is_chunked)
+			if (r->body.is_chunked) {
+				pr_debug(
+					FOCUS,
+					"malformed content-length header"
+				);
 				return -EINVAL;
+			}
 
 			r->body.content_length = atol(h->value);
 		} else if (strcasecmp(h->key, "transfer-encoding") == 0) {
-			if (r->body.content_length > 0)
+			if (r->body.content_length > 0) {
+				pr_debug(
+					FOCUS,
+					"malformed transfer-encoding header"
+				);
 				return -EINVAL;
+			}
 
 			char *p = strstr(h->value, "chunked");
 			if (p)
