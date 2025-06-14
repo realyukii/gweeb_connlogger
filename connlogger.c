@@ -498,14 +498,12 @@ static int parse_bdy_chk(struct http_body *b, struct concated_buf *raw_buf,
 	char *buf, *p;
 	off = 0;
 	buf = &raw_buf->raw_bytes[raw_buf->off];
-	// asm volatile("int3");
 	while (true) {
 		p = NULL;
 
 		if (b->s == CHK_BEGIN)
 			while (true) {
 				if (off + 1 >= len) {
-					// asm volatile ("int3");
 					return -EAGAIN;
 				}
 
@@ -518,7 +516,6 @@ static int parse_bdy_chk(struct http_body *b, struct concated_buf *raw_buf,
 						p = &buf[off];
 					
 					chk_len = p - buf;
-					// asm volatile ("int3");
 					b->chk_sz = strntol(buf, chk_len);
 
 					off += 2;
@@ -533,7 +530,6 @@ static int parse_bdy_chk(struct http_body *b, struct concated_buf *raw_buf,
 			}
 
 		if (b->chk_sz == 0) {
-			// asm volatile ("int3");
 			if (off + 1 >= len) {
 				return -EAGAIN;
 			}
@@ -550,7 +546,6 @@ static int parse_bdy_chk(struct http_body *b, struct concated_buf *raw_buf,
 		}
 
 		while (true) {
-			// asm volatile ("int3");
 			off += b->chk_sz;
 			if (off + 1 >= len) {
 				return -EAGAIN;
@@ -558,7 +553,6 @@ static int parse_bdy_chk(struct http_body *b, struct concated_buf *raw_buf,
 
 			if (buf[off] == '\r' && buf[off + 1] == '\n') {
 				off += 2;
-				// asm volatile("int3");
 
 				raw_buf->off += off;
 				buf = &raw_buf->raw_bytes[raw_buf->off];
