@@ -131,6 +131,8 @@ struct http_req {
 struct concated_buf {
 	/* concated buffer */
 	char *raw_bytes;
+	/* original buffer */
+	char *orig;
 	/* current length of buffer*/
 	size_t len;
 	/* offset of processed buffer */
@@ -282,19 +284,23 @@ static int init(void)
 	return 0;
 }
 
-static void advance(struct concated_buf *ptr, size_t len)
+static void sync_buf(struct concated_buf *ptr)
 {
-	size_t overall_len = ptr->len;
-	if (len > ptr->len)
-		ptr->len = 0;
-	else
-		ptr->len -= len;
+	if (ptr->raw_bytes == ptr->orig)
+		return;
+	
+	if (!ptr->len)
+		return;
 
-	if (ptr->len > 0) {
-		memmove(ptr->raw_bytes, ptr->raw_bytes + len, ptr->len);
-		ptr->raw_bytes[ptr->len] = '\0';
-	} else
-		memset(ptr->raw_bytes, 0, overall_len);
+	memmove(ptr->orig, ptr->raw_bytes, ptr->len);
+	ptr->raw_bytes[ptr->len] = '\0';
+	ptr->raw_bytes = ptr->orig;
+}
+
+static void soft_advance(struct concated_buf *ptr, size_t len)
+{
+	ptr->raw_bytes += len;
+	ptr->len -= len;
 }
 
 static void push_sockfd(int sockfd)
@@ -348,6 +354,8 @@ static void push_sockfd(int sockfd)
 		c[i].sockfd = sockfd;
 		c[i].raw_req.cap = DEFAULT_RAW_CAP;
 		c[i].raw_res.cap = DEFAULT_RAW_CAP;
+		c[i].raw_req.orig = c[i].raw_req.raw_bytes;
+		c[i].raw_res.orig = c[i].raw_res.raw_bytes;
 
 		occupied_pool++;
 		break;
@@ -368,14 +376,14 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 		"raw_req.raw_bytes will be freed: %p\n",
 		h->raw_res.raw_bytes
 	);
-	free(h->raw_req.raw_bytes);
+	free(h->raw_req.orig);
 
 	pr_debug(
 		VERBOSE,
 		"raw_res.raw_bytes will be freed: %p\n",
 		h->raw_res.raw_bytes
 	);
-	free(h->raw_res.raw_bytes);
+	free(h->raw_res.orig);
 	while (h->req_queue.head)
 		dequeue(&h->req_queue);
 
@@ -384,9 +392,11 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 
 static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 {
+	sync_buf(buf);
+
 	size_t *append_pos = &buf->len;
 	size_t incoming_len = *append_pos + len + 1;
-	char **b = &buf->raw_bytes;
+	char **b = &buf->orig;
 
 	if (incoming_len <= buf->cap) {
 		memcpy(*b + *append_pos, src, len);
@@ -397,7 +407,7 @@ static int concat_buf(const void *src, struct concated_buf *buf, size_t len)
 		if (tmp == NULL) {
 			return -1;
 		}
-		*b = tmp;
+		*b = buf->raw_bytes = tmp;
 		memcpy(*b + *append_pos, src, len);
 		*append_pos += len;
 		buf->cap += incoming_len;
@@ -957,7 +967,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 				&& strcmp(methods[r->method].name, "HEAD"))
 					h->req_state = HTTP_REQ_BODY;
 			} else {
-				advance(raw, raw->off);
+				soft_advance(raw, raw->off);
 				raw->off = 0;
 				h->req_state = HTTP_REQ_INIT;
 			}
@@ -971,7 +981,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			if (ret < 0)
 				goto drop_sockfd;
 
-			advance(raw, raw->off);
+			soft_advance(raw, raw->off);
 			raw->off = 0;
 			h->req_state = HTTP_REQ_INIT;
 		}
@@ -1139,7 +1149,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 					unwatch_sockfd(h, "this sockfd is done");
 					return;
 				}
-				advance(raw, raw->off);
+				soft_advance(raw, raw->off);
 				raw->off = 0;
 				h->res_state = HTTP_RES_LINE;
 			}
@@ -1156,7 +1166,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 			write_log(h, r);
 			dequeue(&h->req_queue);
 			pr_debug(VERBOSE, "dequeue request\n");
-			advance(raw, raw->off);
+			soft_advance(raw, raw->off);
 			raw->off = 0;
 			h->res_state = HTTP_RES_LINE;
 		}
