@@ -310,11 +310,16 @@ static void push_sockfd(int sockfd)
 	struct http_ctx **_c = &ctx_pool;
 	struct http_ctx *c = *_c;
 	if (occupied_pool == current_pool_sz) {
-		void *tmp = realloc(c, current_pool_sz * 2);
+		const size_t half_idx = current_pool_sz;
+		const size_t half = half_idx * sizeof(struct http_ctx);
+		void *tmp = realloc(c, half * 2);
 		if (tmp == NULL)
 			return;
-		
+
 		*_c = tmp;
+		c = *_c;
+		current_pool_sz *= 2;
+		memset(&c[half_idx], 0, half);
 		pr_debug(
 			VERBOSE,
 			"new address is allocated for context pool: %p\n",
