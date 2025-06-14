@@ -327,18 +327,16 @@ static void push_sockfd(int sockfd)
 			continue;
 
 		c[i].raw_req.raw_bytes = calloc(1, DEFAULT_RAW_CAP + 1);
-		c[i].raw_res.raw_bytes = calloc(1, DEFAULT_RAW_CAP + 1);
 		/*
 		* do not push current connection to the pool
 		* if we fail to allocate some memory
 		*/
-		if (c[i].raw_req.raw_bytes == NULL || c[i].raw_res.raw_bytes == NULL) {
-			void *to_free = (c[i].raw_req.raw_bytes != NULL)
-				? c[i].raw_req.raw_bytes
-				: c[i].raw_res.raw_bytes;
+		if (!c[i].raw_req.raw_bytes)
+			break;
 
-			/* if both null, it is still safe to call free */
-			free(to_free);
+		c[i].raw_res.raw_bytes = calloc(1, DEFAULT_RAW_CAP + 1);
+		if (!c[i].raw_res.raw_bytes) {
+			free(!c[i].raw_req.raw_bytes);
 			break;
 		}
 
