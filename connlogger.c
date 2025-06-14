@@ -893,8 +893,11 @@ static int parse_bdy(struct http_body *b, struct concated_buf *raw_buf)
 		* or the amount of body send is not
 		* proportional with content_length?
 		*/
-		if (len < b->content_length)
+		if (len < b->content_length) {
+			b->content_length -= len;
+			raw_buf->off += len;
 			return -EAGAIN;
+		}
 
 		raw_buf->off += b->content_length;
 	}
@@ -978,8 +981,11 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 		if (h->req_state == HTTP_REQ_BODY) {
 			pr_debug(VERBOSE, "parsing request body\n");
 			ret = parse_bdy(&r->body, raw);
-			if (ret == -EAGAIN)
+			if (ret == -EAGAIN) {
+				soft_advance(raw, raw->off);
+				raw->off = 0;
 				return;
+			}
 			if (ret < 0)
 				goto drop_sockfd;
 
@@ -1163,8 +1169,11 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 		if (h->res_state == HTTP_RES_BODY) {
 			pr_debug(VERBOSE, "parsing response body\n");
 			ret = parse_bdy(&r->res.body, raw);
-			if (ret == -EAGAIN)
+			if (ret == -EAGAIN) {
+				soft_advance(raw, raw->off);
+				raw->off = 0;
 				return;
+			}
 			if (ret < 0)
 				goto drop_sockfd;
 
