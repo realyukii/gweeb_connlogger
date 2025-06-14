@@ -218,15 +218,15 @@ static void dequeue(struct http_req_queue *q)
 static void generate_current_time(char *buf)
 {
 	time_t rawtime;
-	struct tm *timeinfo;
+	struct tm timeinfo;
 
 	time(&rawtime);
-	timeinfo = localtime(&rawtime);
+	localtime_r(&rawtime, &timeinfo);
 	/*
 	* the manual says atleast 26 bytes of buf is provided
 	* 24 ascii character + newline + null terminated bytes
 	*/
-	asctime_r(timeinfo, buf);
+	asctime_r(&timeinfo, buf);
 	buf[26 - 2] = '\0';
 }
 
