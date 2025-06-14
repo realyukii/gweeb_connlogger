@@ -1047,6 +1047,14 @@ static int check_res_hdr(struct http_res *r)
 			}
 
 			r->body.content_length = atol(h->value);
+		} else if (strcasecmp(h->key, "connection") == 0) {
+			if (strcasecmp(h->value, "close")) {
+				pr_debug(
+					FOCUS,
+					"closing connection due to connection: close"
+				);
+				return -EINVAL;
+			}
 		} else if (strcasecmp(h->key, "transfer-encoding") == 0) {
 			if (r->body.content_length > 0) {
 				pr_debug(
