@@ -390,7 +390,6 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 		"sockfd %d (%s) is unregistered from the pool: %s\n",
 		h->sockfd, h->ip_addr, reason
 	);
-	h->sockfd = 0;
 
 	pr_debug(
 		VERBOSE,
