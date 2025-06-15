@@ -1207,14 +1207,12 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 
 	}
 
+unlock_sockfd:
 	fflush(file_log);
 	pthread_mutex_unlock(&h->sockfd_lock);
 	return;
 drop_sockfd:
 	unwatch_sockfd(h, "failed to parse remote buffer");
-	pthread_mutex_unlock(&h->sockfd_lock);
-	return;
-unlock_sockfd:
 	pthread_mutex_unlock(&h->sockfd_lock);
 }
 
