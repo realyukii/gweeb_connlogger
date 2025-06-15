@@ -408,6 +408,7 @@ static void unwatch_sockfd(struct http_ctx *h, char *reason)
 	while (h->req_queue.head)
 		dequeue(&h->req_queue);
 
+	memset(h, 0, sizeof(*h));
 	occupied_pool--;
 }
 
