@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <errno.h>
+#include <pthread.h>
 
 #ifndef DEBUG_LEVEL
 #define DEBUG_LEVEL 0
@@ -153,8 +154,10 @@ struct http_ctx {
 	http_res_raw raw_res;
 	parser_state req_state;
 	parser_state res_state;
+	pthread_mutex_t sockfd_lock;
 };
 
+static pthread_mutex_t ctx_pool_lock = PTHREAD_MUTEX_INITIALIZER;
 static size_t current_pool_sz = DEFAULT_POOL_SZ;
 static size_t occupied_pool = 0;
 static struct http_ctx *ctx_pool = NULL;
@@ -252,37 +255,48 @@ static void write_log(struct http_ctx *h, struct http_req *req)
 
 static int init(void)
 {
-	/* already initialised, skip duplicate init, exit. */
-	if (file_log != NULL && ctx_pool != NULL)
-		return 0;
+	static pthread_mutex_t init_lock = PTHREAD_MUTEX_INITIALIZER;
+	static bool initialised = false;
+	int ret = 0;
 
+	/* already initialised, skip duplicate init, exit. */
+	if (initialised)
+		return ret;
+
+	pthread_mutex_lock(&init_lock);
 	const char *log_file = getenv("GWLOG_PATH");
 
 	/* do not init if there's no destination for parsed data to write */
 	if (log_file == NULL) {
 		pr_debug(DEBUG, "no file path provided in GWLOG_PATH env\n");
-		return -1;
+		ret = -1;
+		goto unlock_init;
 	}
 
 	file_log = fopen(log_file, "a");
 	if (file_log == NULL) {
 		pr_debug(DEBUG, "failed to open file %s\n", log_file);
-		return -1;
+		ret = -1;
 	}
 
 	setvbuf(file_log, io_buf, _IOFBF, sizeof(io_buf));
 	ctx_pool = calloc(DEFAULT_POOL_SZ, sizeof(struct http_ctx));
 	if (ctx_pool == NULL) {
 		pr_debug(DEBUG, "fail to allocate dynamic memory\n");
-		return -1;
+		ret = -1;
+		goto unlock_init;
 	}
+	initialised = true;
 
 	pr_debug(
 		DEBUG,
 		"init the pool context and file handle for the first time\n"
 	);
 	pr_debug(VERBOSE, "allocated address of context pool: %p\n", ctx_pool);
-	return 0;
+
+unlock_init:
+	pthread_mutex_unlock(&init_lock);
+	return ret;
 }
 
 static void sync_buf(struct concated_buf *ptr)
@@ -330,6 +344,8 @@ static void push_sockfd(int sockfd)
 	for (size_t i = 0; i < current_pool_sz; i++) {
 		if (c[i].sockfd != 0)
 			continue;
+
+		pthread_mutex_init(&c[i].sockfd_lock, NULL);
 
 		c[i].raw_req.raw_bytes = calloc(1, DEFAULT_RAW_CAP + 1);
 		/*
@@ -912,6 +928,8 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 	h = find_http_ctx(fd);
 	if (h == NULL)
 		return;
+
+	pthread_mutex_lock(&h->sockfd_lock);
 	raw = &h->raw_req;
 	r = h->req_queue.tail;
 
@@ -939,7 +957,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			if (ret == -EINVAL)
 				goto drop_sockfd;
 			else if (ret == -EAGAIN)
-				return;
+				goto unlock_sockfd;
 			h->req_state = HTTP_REQ_HDR;
 		}
 
@@ -947,7 +965,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			pr_debug(VERBOSE, "parsing request header\n");
 			ret = parse_hdr(&r->hdr_list, raw);
 			if (ret == -EAGAIN)
-				return;
+				goto unlock_sockfd;
 			if (ret < 0)
 				goto drop_sockfd;
 
@@ -981,7 +999,7 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 			if (ret == -EAGAIN) {
 				soft_advance(raw, raw->off);
 				raw->off = 0;
-				return;
+				goto unlock_sockfd;
 			}
 			if (ret < 0)
 				goto drop_sockfd;
@@ -992,9 +1010,12 @@ static void handle_parse_localbuf(int fd, const void *buf, int buf_len)
 		}
 	}
 
+unlock_sockfd:
+	pthread_mutex_unlock(&h->sockfd_lock);
 	return;
 drop_sockfd:
 	unwatch_sockfd(h, "failed to parse local buffer");
+	pthread_mutex_unlock(&h->sockfd_lock);
 }
 
 static int parse_res_line(struct http_req *r, http_res_raw *raw_buf)
@@ -1101,7 +1122,9 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	h = find_http_ctx(fd);
 	if (h == NULL)
 		return;
-	
+
+	pthread_mutex_lock(&h->sockfd_lock);
+
 	raw = &h->raw_res;
 
 	concat_buf(buf, raw, buf_len);
@@ -1117,7 +1140,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 			pr_debug(VERBOSE, "parsing response line\n");
 			ret = parse_res_line(r, raw);
 			if (ret == -EAGAIN)
-				return;
+				goto unlock_sockfd;
 			if (ret < 0)
 				goto drop_sockfd;
 
@@ -1128,7 +1151,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 			pr_debug(VERBOSE, "parsing response header\n");
 			ret = parse_hdr(&r->res.hdr_list, raw);
 			if (ret == -EAGAIN)
-				return;
+				goto unlock_sockfd;
 			if (ret < 0)
 				goto drop_sockfd;
 
@@ -1155,7 +1178,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 				pr_debug(VERBOSE, "dequeue request\n");
 				if (ret == COMPLETED) {
 					unwatch_sockfd(h, "this sockfd is done");
-					return;
+					goto unlock_sockfd;
 				}
 				soft_advance(raw, raw->off);
 				raw->off = 0;
@@ -1169,7 +1192,7 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 			if (ret == -EAGAIN) {
 				soft_advance(raw, raw->off);
 				raw->off = 0;
-				return;
+				goto unlock_sockfd;
 			}
 			if (ret < 0)
 				goto drop_sockfd;
@@ -1185,9 +1208,14 @@ static void handle_parse_remotebuf(int fd, const void *buf, int buf_len)
 	}
 
 	fflush(file_log);
+	pthread_mutex_unlock(&h->sockfd_lock);
 	return;
 drop_sockfd:
 	unwatch_sockfd(h, "failed to parse remote buffer");
+	pthread_mutex_unlock(&h->sockfd_lock);
+	return;
+unlock_sockfd:
+	pthread_mutex_unlock(&h->sockfd_lock);
 }
 
 static void fill_address(struct http_ctx *h, const struct sockaddr *addr)
@@ -1243,9 +1271,11 @@ int socket(int domain, int type, int protocol)
 	if (!(type & SOCK_STREAM))
 		return ret;
 
-	if (init() == 0)
+	if (init() == 0) {
+		pthread_mutex_lock(&ctx_pool_lock);
 		push_sockfd(ret);
-	else
+		pthread_mutex_unlock(&ctx_pool_lock);
+	} else
 		pr_debug(
 			VERBOSE,
 			"failed to push sockfd %d with domain %d\n",
@@ -1281,7 +1311,9 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	if (h == NULL)
 		return ret;
 
+	pthread_mutex_lock(&h->sockfd_lock);
 	fill_address(h, addr);
+	pthread_mutex_unlock(&h->sockfd_lock);
 
 	return ret;
 }
@@ -1429,8 +1461,11 @@ int close(int fd)
 	}
 
 	struct http_ctx *h = find_http_ctx(fd);
-	if (h != NULL)
-		unwatch_sockfd(h, "after closing the sockfd");
+	if (h != NULL) {
+		pthread_mutex_lock(&h->sockfd_lock);
+	 	unwatch_sockfd(h, "after closing the sockfd");
+		pthread_mutex_unlock(&h->sockfd_lock);
+	}
 
 	return ret;
 }
